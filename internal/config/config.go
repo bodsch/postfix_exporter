@@ -41,6 +41,10 @@ type Config struct {
 	//
 	// "submission/smtpd" or "relay/smtp" need no entry.
 	Services map[string][]string `yaml:"services"`
+	// MaxServices limits the distinct service names in the "service"
+	// label; lines of further services are counted as "other". Any local
+	// user can log under the tag "postfix/<anything>".
+	MaxServices int `yaml:"max_services"`
 
 	Replies Replies `yaml:"replies"`
 }
@@ -224,6 +228,10 @@ func (c *Config) finalize() error {
 			}
 			owner[n] = typ
 		}
+	}
+
+	if c.MaxServices <= 0 {
+		c.MaxServices = 100
 	}
 
 	r := &c.Replies

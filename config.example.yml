@@ -40,6 +40,11 @@ showq:
 # services:
 #   smtp: [encrypt]
 
+# Distinct service names in the "service" label; lines of further
+# services are counted as "other". Any local user can log under the tag
+# "postfix/<anything>", so this protects Prometheus from forged tags.
+# max_services: 100
+
 # Classification of SMTP replies into a "text" label. Without rules the
 # metrics postfix_delivery_replies_total, postfix_smtp_replies_total and
 # postfix_smtpd_reject_replies_total are not exported; the reason classes

@@ -21,21 +21,30 @@ type Collector struct {
 	now    func() time.Time
 
 	// Only touched by Handle, which runs in a single goroutine.
-	types map[string]string // service name -> daemon type
+	types        map[string]string // service name -> daemon type, at most cfg.MaxServices
+	warnServices bool
+	codes        *limiter // reply codes and enhanced status codes (DSN)
 
 	deliveryReplies *classifier
 	smtpReplies     *classifier
 	rejectReplies   *classifier
 }
 
+// maxCodes limits the distinct reply codes (550) and enhanced status codes
+// (5.1.1) together. They come from remote servers; the ones in actual use
+// are far fewer.
+const maxCodes = 200
+
 // New returns a collector for the given configuration.
 func New(cfg *config.Config, logger *slog.Logger) *Collector {
 	return &Collector{
-		cfg:             cfg,
-		m:               newMetrics(),
-		logger:          logger,
-		now:             time.Now,
-		types:           make(map[string]string),
+		cfg:    cfg,
+		m:      newMetrics(),
+		logger: logger,
+		now:    time.Now,
+		types:  make(map[string]string),
+		codes: newLimiter(maxCodes, logger,
+			"too many distinct SMTP reply or status codes, counting further ones as \"other\"", "max_codes", maxCodes),
 		deliveryReplies: newClassifier("delivery", cfg.Replies.Delivery, cfg.Replies.MaxTexts, logger),
 		smtpReplies:     newClassifier("smtp", cfg.Replies.SMTP, cfg.Replies.MaxTexts, logger),
 		rejectReplies:   newClassifier("reject", cfg.Replies.Reject, cfg.Replies.MaxTexts, logger),
@@ -100,8 +109,19 @@ func (c *Collector) Handle(r logsource.Record, err error) {
 	typ, ok := c.types[r.Service]
 	if !ok {
 		typ = c.cfg.TypeOf(r.Service)
-		c.types[r.Service] = typ
-		c.m.initService(r.Service, typ)
+		if len(c.types) < c.cfg.MaxServices {
+			c.types[r.Service] = typ
+			c.m.initService(r.Service, typ)
+		} else {
+			// Parsed by its type all the same, but not cached and
+			// counted under one label value.
+			if !c.warnServices {
+				c.warnServices = true
+				c.logger.Warn("too many distinct Postfix services, counting further ones as \"other\"",
+					"max_services", c.cfg.MaxServices, "service", r.Service)
+			}
+			r.Service = labelOther
+		}
 	}
 	c.m.logMessages.WithLabelValues(r.Service, r.Severity).Inc()
 

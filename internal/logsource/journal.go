@@ -2,7 +2,6 @@ package logsource
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -57,10 +56,14 @@ func (j *Journal) args() []string {
 
 // Run implements Source.
 func (j *Journal) Run(ctx context.Context, h Handler) error {
-	cmd := exec.CommandContext(ctx, j.Command, j.args()...)
+	// runCtx also stops journalctl after a scanner error: following, it
+	// never exits by itself, and draining its output would block forever.
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	cmd := exec.CommandContext(runCtx, j.Command, j.args()...)
 	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	stderr := &tailBuffer{max: maxStderr}
+	cmd.Stderr = stderr
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -79,6 +82,9 @@ func (j *Journal) Run(ctx context.Context, h Handler) error {
 		h(r, err)
 	}
 	scanErr := sc.Err()
+	if scanErr != nil {
+		cancel()
+	}
 	// Drain the pipe so that Wait does not block on a full pipe after a
 	// scanner error.
 	_, _ = io.Copy(io.Discard, stdout)
@@ -150,3 +156,27 @@ func journalString(raw json.RawMessage) string {
 	}
 	return ""
 }
+
+// maxStderr bounds the journalctl error output kept for the error message.
+const maxStderr = 4096
+
+// tailBuffer keeps the last max bytes written to it, so that a journalctl
+// that keeps warning while it runs cannot grow the memory without bound.
+type tailBuffer struct {
+	max int
+	buf []byte
+}
+
+func (b *tailBuffer) Write(p []byte) (int, error) {
+	n := len(p)
+	if len(p) >= b.max {
+		p = p[len(p)-b.max:]
+		b.buf = b.buf[:0]
+	} else if over := len(b.buf) + len(p) - b.max; over > 0 {
+		b.buf = b.buf[:copy(b.buf, b.buf[over:])]
+	}
+	b.buf = append(b.buf, p...)
+	return n, nil
+}
+
+func (b *tailBuffer) String() string { return string(b.buf) }

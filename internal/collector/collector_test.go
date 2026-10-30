@@ -3,11 +3,14 @@ package collector
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -223,5 +226,163 @@ func TestParseReply(t *testing.T) {
 		if got := parseReply(tt.in, tt.dsn); got != tt.want {
 			t.Errorf("parseReply(%q) = %+v, want %+v", tt.in, got, tt.want)
 		}
+	}
+}
+
+// TestServiceLimit checks that forged syslog tags ("logger -t postfix/x")
+// cannot create series without end, and that lines of services beyond
+// the limit are still parsed by their type.
+func TestServiceLimit(t *testing.T) {
+	cfg, err := config.Parse([]byte("max_services: 2\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(cfg, discardLogger())
+	for _, service := range []string{"smtpd", "qmgr", "a/smtpd", "b/smtpd", "smtpd", "c/qmgr"} {
+		c.Handle(logsource.Record{Program: "postfix", Service: service, Severity: "info",
+			Text: "connect from x[192.0.2.1]"}, nil)
+	}
+	if len(c.types) != 2 {
+		t.Errorf("%d services cached, want 2", len(c.types))
+	}
+	for _, tt := range []struct {
+		name string
+		c    prometheus.Collector
+		want float64
+	}{
+		{"smtpd connects", c.m.smtpdConnects.WithLabelValues("smtpd"), 2},
+		{"other connects", c.m.smtpdConnects.WithLabelValues("other"), 2},
+		{"other messages", c.m.logMessages.WithLabelValues("other", "info"), 3},
+	} {
+		if got := testutil.ToFloat64(tt.c); got != tt.want {
+			t.Errorf("%s = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+	// smtpd and qmgr with 5 severities each, other with info only.
+	if n := testutil.CollectAndCount(c.m.logMessages); n != 11 {
+		t.Errorf("log message series = %d, want 11", n)
+	}
+}
+
+func TestSASLMechanism(t *testing.T) {
+	c := New(config.Default(), discardLogger())
+	for _, method := range []string{"LOGIN", "login", "PLAIN", "x1", "x2", strings.Repeat("A", 100)} {
+		c.Handle(logsource.Record{Program: "postfix", Service: "smtpd", Severity: "warning",
+			Text: "x[192.0.2.1]: SASL " + method + " authentication failed: bad"}, nil)
+	}
+	for method, want := range map[string]float64{"LOGIN": 2, "PLAIN": 1, "other": 3} {
+		if got := testutil.ToFloat64(c.m.smtpdSASLFailures.WithLabelValues("smtpd", method)); got != want {
+			t.Errorf("method %q = %v, want %v", method, got, want)
+		}
+	}
+	if n := testutil.CollectAndCount(c.m.smtpdSASLFailures); n != 3 {
+		t.Errorf("SASL failure series = %d, want 3", n)
+	}
+}
+
+// TestCodeLimit checks that status codes chosen by remote servers cannot
+// create series without end.
+func TestCodeLimit(t *testing.T) {
+	c := New(config.Default(), discardLogger())
+	for i := range maxCodes + 50 {
+		dsn := fmt.Sprintf("5.%d.%d", i/1000, i%1000)
+		c.Handle(logsource.Record{Program: "postfix", Service: "smtp", Severity: "info",
+			Text: "1A2B3C: to=<a@example.net>, relay=x[192.0.2.1]:25, delay=1, delays=0/0/0.5/0.5, dsn=" + dsn +
+				", status=bounced (host x[192.0.2.1] said: 550 " + dsn + " no (in reply to RCPT TO command))"}, nil)
+	}
+	if got := testutil.ToFloat64(c.m.deliveryStatus.WithLabelValues("smtp", "bounced", "other")); got != 50 {
+		t.Errorf("other = %v, want 50", got)
+	}
+	if n := testutil.CollectAndCount(c.m.deliveryStatus); n != maxCodes+1 {
+		t.Errorf("delivery status series = %d, want %d", n, maxCodes+1)
+	}
+}
+
+func TestLimiter(t *testing.T) {
+	l := newLimiter(2, discardLogger(), "limit reached")
+	var got []string
+	for _, v := range []string{"a", "b", "c", "a", "d", "b"} {
+		got = append(got, l.value(v))
+	}
+	if want := []string{"a", "b", "other", "a", "other", "b"}; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if !l.warned {
+		t.Error("no warning logged")
+	}
+}
+
+// failingSource fails its first runs, then blocks until cancelled.
+type failingSource struct {
+	fails int
+	n     int // only touched by Run, which Collector.Run calls sequentially
+	runs  chan int
+}
+
+func (s *failingSource) String() string { return "failing" }
+
+func (s *failingSource) Run(ctx context.Context, _ logsource.Handler) error {
+	n := s.n
+	s.n++
+	s.runs <- n
+	if n < s.fails {
+		return errors.New("journalctl killed")
+	}
+	<-ctx.Done()
+	return nil
+}
+
+// TestRunRestartsSource checks the promise of Run and of
+// postfix_exporter_log_source_up: a failing source is retried, every
+// failure is counted, and up is 1 again once it reads. Without the
+// restart a killed journalctl would end the log metrics until the
+// exporter is restarted by hand.
+func TestRunRestartsSource(t *testing.T) {
+	c := New(config.Default(), discardLogger())
+	src := &failingSource{fails: 2, runs: make(chan int, 10)}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { c.Run(ctx, src, 10*time.Millisecond); close(done) }()
+
+	deadline := time.After(5 * time.Second)
+	for run := 0; run <= src.fails; run++ {
+		select {
+		case <-src.runs:
+		case <-deadline:
+			t.Fatalf("source not restarted after failure %d; the log metrics would stop for good", run)
+		}
+	}
+	if got := testutil.ToFloat64(c.m.sourceRestarts); got != 2 {
+		t.Errorf("restarts = %v, want 2", got)
+	}
+	if got := testutil.ToFloat64(c.m.sourceUp); got != 1 {
+		t.Errorf("up = %v, want 1 while the source reads", got)
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after cancel; shutdown would hang")
+	}
+	if got := testutil.ToFloat64(c.m.sourceRestarts); got != 2 {
+		t.Errorf("restarts after cancel = %v, want 2: a shutdown is not a failure", got)
+	}
+}
+
+// TestDebugLogsUnmatched checks the promise of --log.level=debug in the
+// README: every Postfix line the exporter does not know is logged, which
+// is how new log formats are found after a Postfix update.
+func TestDebugLogsUnmatched(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	c := New(config.Default(), logger)
+	c.Handle(logsource.ParseLine("Jan  1 00:00:00 mx postfix/smtpd[1]: something entirely new"))
+	c.Handle(logsource.ParseLine("Jan  1 00:00:00 mx postfix/smtpd[1]: connect from x[192.0.2.1]"))
+	if !strings.Contains(buf.String(), `text="something entirely new"`) {
+		t.Errorf("unmatched line not logged at debug level:\n%s", buf.String())
+	}
+	if strings.Contains(buf.String(), "connect from") {
+		t.Errorf("matched line logged as unmatched:\n%s", buf.String())
 	}
 }

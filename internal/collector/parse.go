@@ -152,7 +152,7 @@ func (c *Collector) parseSMTPD(r logsource.Record) string {
 		mm := reTLSIn.FindStringSubmatch(t)
 		m.smtpdTLS.WithLabelValues(s, mm[1], mm[2], mm[3]).Inc()
 	case reSASLFail.MatchString(t):
-		m.smtpdSASLFailures.WithLabelValues(s, reSASLFail.FindStringSubmatch(t)[1]).Inc()
+		m.smtpdSASLFailures.WithLabelValues(s, saslMechanism(reSASLFail.FindStringSubmatch(t)[1])).Inc()
 	case reNotRes.MatchString(t):
 		m.smtpdReverseDNS.WithLabelValues(s, "not_resolve").Inc()
 	case reNotList.MatchString(t):
@@ -218,9 +218,9 @@ func (c *Collector) parseAction(r logsource.Record, mm []string) string {
 	case "reject":
 		reply := parseReply(rest, "")
 		reason := rejectReason(reply.Text)
-		m.smtpdRejects.WithLabelValues(s, command, reply.Code, reason).Inc()
+		m.smtpdRejects.WithLabelValues(s, command, c.codes.value(reply.Code), reason).Inc()
 		if text, ok := c.rejectReplies.classify(reply, ""); ok {
-			m.smtpdRejectReplies.WithLabelValues(s, command, reply.Code, reply.EnhancedCode, text).Inc()
+			m.smtpdRejectReplies.WithLabelValues(s, command, c.codes.value(reply.Code), c.codes.value(reply.EnhancedCode), text).Inc()
 		}
 	case "reject_warning":
 		reply := parseReply(rest, "")
@@ -352,7 +352,7 @@ func (c *Collector) parseSMTP(r logsource.Record) string {
 	case reHostSaid.MatchString(t):
 		reply := parseReply(reHostSaid.FindStringSubmatch(t)[1], "")
 		if text, ok := c.smtpReplies.classify(reply, ""); ok {
-			m.smtpReplies.WithLabelValues(s, reply.Code, reply.EnhancedCode, text).Inc()
+			m.smtpReplies.WithLabelValues(s, c.codes.value(reply.Code), c.codes.value(reply.EnhancedCode), text).Inc()
 		}
 	default:
 		return resultUnmatched
@@ -371,7 +371,7 @@ func (c *Collector) parseDelivery(r logsource.Record) string {
 	}
 	m, s := c.m, r.Service
 	dsn, status := mm[6], mm[7]
-	m.deliveryStatus.WithLabelValues(s, status, dsn).Inc()
+	m.deliveryStatus.WithLabelValues(s, status, c.codes.value(dsn)).Inc()
 	if delay, err := strconv.ParseFloat(mm[1], 64); err == nil {
 		m.deliveryDelay.WithLabelValues(s, status).Observe(delay)
 	}
@@ -389,7 +389,7 @@ func (c *Collector) parseDelivery(r logsource.Record) string {
 		}
 		reply := parseReply(text, dsn)
 		if label, ok := c.deliveryReplies.classify(reply, status); ok {
-			m.deliveryReplies.WithLabelValues(s, status, reply.Code, reply.EnhancedCode, label).Inc()
+			m.deliveryReplies.WithLabelValues(s, status, c.codes.value(reply.Code), c.codes.value(reply.EnhancedCode), label).Inc()
 		}
 	}
 	return resultMatched
@@ -480,6 +480,24 @@ func rejectReason(text string) string {
 		}
 	}
 	return "other"
+}
+
+// saslMechanisms are the registered SASL mechanisms Postfix can offer
+// through Cyrus SASL or Dovecot. smtpd logs the mechanism the client
+// sent, so others are counted as "other".
+var saslMechanisms = map[string]bool{
+	"PLAIN": true, "LOGIN": true, "CRAM-MD5": true, "DIGEST-MD5": true, "NTLM": true,
+	"GSSAPI": true, "GS2-KRB5": true, "EXTERNAL": true, "ANONYMOUS": true, "OTP": true,
+	"XOAUTH2": true, "OAUTHBEARER": true, "SCRAM-SHA-1": true, "SCRAM-SHA-1-PLUS": true,
+	"SCRAM-SHA-256": true, "SCRAM-SHA-256-PLUS": true,
+}
+
+func saslMechanism(s string) string {
+	s = strings.ToUpper(s)
+	if saslMechanisms[s] {
+		return s
+	}
+	return labelOther
 }
 
 func yesNo(b bool) string {

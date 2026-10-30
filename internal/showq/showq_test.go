@@ -148,3 +148,47 @@ postfix_showq_up 0
 	}
 	var _ prometheus.Collector = c
 }
+
+// TestCollectTimeout checks showq.timeout against a showq that accepts
+// the connection and never answers: the scrape must give up with up=0
+// instead of hanging until Prometheus' own scrape timeout, which would
+// lose all other metrics of the scrape as well.
+func TestCollectTimeout(t *testing.T) {
+	sock := filepath.Join(t.TempDir(), "showq")
+	l, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	go func() {
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				return
+			}
+			defer conn.Close() // held open, never written to
+		}
+	}()
+
+	c := New("unix", sock, 200*time.Millisecond, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	done := make(chan error, 1)
+	start := time.Now()
+	go func() {
+		done <- testutil.CollectAndCompare(c, strings.NewReader(`
+# HELP postfix_showq_up Whether the queue could be read from showq (1) or not (0).
+# TYPE postfix_showq_up gauge
+postfix_showq_up 0
+`), "postfix_showq_up")
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Error(err)
+		}
+		if d := time.Since(start); d > 2*time.Second {
+			t.Errorf("collect took %v with a timeout of 200ms", d)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("collect hangs on a showq that does not answer")
+	}
+}

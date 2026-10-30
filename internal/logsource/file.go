@@ -9,6 +9,10 @@ import (
 	"github.com/nxadm/tail"
 )
 
+// maxLineSize bounds the memory of one log line. Postfix lines are far
+// shorter; syslog daemons cut messages at a few kB.
+const maxLineSize = 1 << 20
+
 // File reads a syslog file. It follows the file from its end, across
 // rotation (rename or truncate), like "tail -F".
 type File struct {
@@ -34,7 +38,9 @@ func (f *File) Run(ctx context.Context, h Handler) error {
 		// otherwise wait silently forever. A file that disappears
 		// later, during rotation, is waited for.
 		MustExist: true,
-		Logger:    tail.DiscardingLogger,
+		// Without a limit the tail buffers a line of any length.
+		MaxLineSize: maxLineSize,
+		Logger:      tail.DiscardingLogger,
 	})
 	if err != nil {
 		return err
@@ -51,10 +57,10 @@ func (f *File) Run(ctx context.Context, h Handler) error {
 				return t.Err()
 			}
 			if l.Err != nil {
-				// Lines longer than the tail buffer arrive split
-				// with an error; the parts are not log lines.
 				continue
 			}
+			// Lines longer than maxLineSize arrive split into parts;
+			// they fail to parse and are counted as invalid.
 			h(ParseLine(l.Text))
 		}
 	}
@@ -68,7 +74,7 @@ func (f *File) replay(ctx context.Context, h Handler) error {
 	defer file.Close()
 
 	sc := bufio.NewScanner(file)
-	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	sc.Buffer(make([]byte, 64*1024), maxLineSize)
 	for sc.Scan() {
 		if ctx.Err() != nil {
 			return nil

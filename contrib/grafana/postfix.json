@@ -1,7 +1,7 @@
 {
   "uid": "postfix-exporter",
   "title": "Postfix",
-  "description": "Queue, Zustellung, Eingang, TLS, postscreen und Betrieb (postfix_exporter).",
+  "description": "Queue, delivery, inbound, TLS, postscreen and operations (postfix_exporter).",
   "tags": [
     "postfix",
     "mail"
@@ -38,7 +38,7 @@
       {
         "type": "datasource",
         "name": "datasource",
-        "label": "Datenquelle",
+        "label": "Data source",
         "query": "prometheus",
         "current": {},
         "hide": 0,
@@ -80,7 +80,7 @@
       "id": 1,
       "type": "stat",
       "title": "Postfix",
-      "description": "Ob die Queue über showq gelesen werden kann. DOWN heißt meist: Postfix läuft nicht.",
+      "description": "Whether the queue can be read via showq. DOWN usually means: Postfix is not running.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -164,8 +164,8 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Log-Quelle",
-      "description": "Ob der Exporter das Mail-Log bzw. Journal liest.",
+      "title": "Log source",
+      "description": "Whether the exporter is reading the mail log or journal.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -249,8 +249,8 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Queue gesamt",
-      "description": "",
+      "title": "Active / Incoming",
+      "description": "The fullest of the active, incoming and maildrop queues, as PostfixActiveQueueHigh checks them: per queue and server, not summed. Red from 500: that is where the alert fires (after 10 minutes). deferred and hold have tiles of their own.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -268,7 +268,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(postfix_queue_messages{instance=~\"$instance\"})",
+          "expr": "max(postfix_queue_messages{instance=~\"$instance\", queue=~\"active|incoming|maildrop\"})",
           "legendFormat": "__auto"
         }
       ],
@@ -284,16 +284,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "green",
                 "value": null
               },
               {
                 "color": "orange",
-                "value": 500
+                "value": 250
               },
               {
                 "color": "red",
-                "value": 2000
+                "value": 500
               }
             ]
           }
@@ -321,7 +321,7 @@
       "id": 4,
       "type": "stat",
       "title": "Deferred",
-      "description": "Nachrichten, deren Zustellung vorübergehend fehlgeschlagen ist und wiederholt wird.",
+      "description": "Messages whose delivery failed temporarily and will be retried. Red from 100: that is where PostfixDeferredQueueHigh fires (after 15 minutes).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -364,7 +364,7 @@
               },
               {
                 "color": "red",
-                "value": 200
+                "value": 100
               }
             ]
           }
@@ -392,7 +392,7 @@
       "id": 5,
       "type": "stat",
       "title": "Hold",
-      "description": "Angehaltene Nachrichten (HOLD-Aktion, postsuper -h). Brauchen einen manuellen Eingriff.",
+      "description": "Messages on hold (HOLD action, postsuper -h). They need manual intervention.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -460,8 +460,8 @@
     {
       "id": 6,
       "type": "stat",
-      "title": "Älteste deferred",
-      "description": "Alter der ältesten Nachricht in der deferred-Queue.",
+      "title": "Oldest deferred",
+      "description": "Age of the oldest message in the deferred queue.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -533,8 +533,8 @@
     {
       "id": 7,
       "type": "stat",
-      "title": "Zustellquote",
-      "description": "Anteil erfolgreicher Zustellversuche (sent) an allen Versuchen im Zeitraum.",
+      "title": "Delivery rate",
+      "description": "Share of successful delivery attempts (sent) in all attempts in the time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -583,7 +583,8 @@
               }
             ]
           },
-          "decimals": 1
+          "decimals": 1,
+          "noValue": "no deliveries"
         },
         "overrides": []
       },
@@ -608,7 +609,7 @@
       "id": 8,
       "type": "stat",
       "title": "Fatal / Panic",
-      "description": "Fatale Fehler von Postfix-Diensten im Zeitraum.",
+      "description": "Fatal errors of Postfix services in the time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -626,7 +627,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_log_messages_total{instance=~\"$instance\", severity=~\"fatal|panic\"}[$__range]))",
+          "expr": "(sum(increase(postfix_log_messages_total{instance=~\"$instance\", severity=~\"fatal|panic\"}[$__range])) or vector(0))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false
@@ -677,8 +678,8 @@
     {
       "id": 9,
       "type": "stat",
-      "title": "Angenommen",
-      "description": "Von smtpd angenommene Nachrichten im Zeitraum.",
+      "title": "Accepted",
+      "description": "Messages accepted by smtpd in the time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -696,7 +697,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_smtpd_messages_accepted_total{instance=~\"$instance\"}[$__range]))",
+          "expr": "(sum(increase(postfix_smtpd_messages_accepted_total{instance=~\"$instance\"}[$__range])) or vector(0))",
           "legendFormat": "__auto"
         }
       ],
@@ -741,8 +742,8 @@
     {
       "id": 10,
       "type": "stat",
-      "title": "Zugestellt",
-      "description": "Erfolgreich zugestellte Empfänger im Zeitraum (alle Zustelldienste).",
+      "title": "Delivered",
+      "description": "Recipients delivered successfully in the time range (all delivery services).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -760,7 +761,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_delivery_status_total{instance=~\"$instance\", status=\"sent\"}[$__range]))",
+          "expr": "(sum(increase(postfix_delivery_status_total{instance=~\"$instance\", status=\"sent\"}[$__range])) or vector(0))",
           "legendFormat": "__auto"
         }
       ],
@@ -824,7 +825,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_delivery_status_total{instance=~\"$instance\", status=\"bounced\"}[$__range]))",
+          "expr": "(sum(increase(postfix_delivery_status_total{instance=~\"$instance\", status=\"bounced\"}[$__range])) or vector(0))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false
@@ -876,7 +877,7 @@
       "id": 12,
       "type": "stat",
       "title": "Rejects",
-      "description": "Von smtpd-Restriktionen abgewiesene Versuche im Zeitraum.",
+      "description": "Attempts rejected by smtpd restrictions in the time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -894,7 +895,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_smtpd_rejects_total{instance=~\"$instance\"}[$__range]))",
+          "expr": "(sum(increase(postfix_smtpd_rejects_total{instance=~\"$instance\"}[$__range])) or vector(0))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false
@@ -941,8 +942,8 @@
     {
       "id": 13,
       "type": "stat",
-      "title": "postscreen blockiert",
-      "description": "Von postscreen abgewiesene Clients und fehlgeschlagene Tests.",
+      "title": "postscreen blocked",
+      "description": "Clients rejected by postscreen and failed tests.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -960,7 +961,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_postscreen_rejects_total{instance=~\"$instance\"}[$__range])) + sum(increase(postfix_postscreen_tests_failed_total{instance=~\"$instance\"}[$__range]))",
+          "expr": "(sum(increase(postfix_postscreen_rejects_total{instance=~\"$instance\"}[$__range])) or vector(0)) + (sum(increase(postfix_postscreen_tests_failed_total{instance=~\"$instance\"}[$__range])) or vector(0))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false
@@ -1007,8 +1008,8 @@
     {
       "id": 14,
       "type": "stat",
-      "title": "SASL-Fehler",
-      "description": "Fehlgeschlagene Anmeldungen im Zeitraum. Viele davon deuten auf Passwort-Raten hin.",
+      "title": "SASL failures",
+      "description": "Failed logins in the time range. Many of them point to password guessing. The alert PostfixSASLAuthenticationFailures fires from 50 in 10 minutes; the tile counts over the whole time range.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1026,7 +1027,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_smtpd_sasl_authentication_failures_total{instance=~\"$instance\"}[$__range]))",
+          "expr": "(sum(increase(postfix_smtpd_sasl_authentication_failures_total{instance=~\"$instance\"}[$__range])) or vector(0))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false
@@ -1081,8 +1082,8 @@
     {
       "id": 15,
       "type": "stat",
-      "title": "Prozessfehler",
-      "description": "Abgestürzte oder gedrosselte Postfix-Prozesse (master).",
+      "title": "Process failures",
+      "description": "Crashed or throttled Postfix processes (master).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1100,7 +1101,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_master_process_failures_total{instance=~\"$instance\"}[$__range]))",
+          "expr": "(sum(increase(postfix_master_process_failures_total{instance=~\"$instance\"}[$__range])) or vector(0))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false
@@ -1151,8 +1152,8 @@
     {
       "id": 16,
       "type": "stat",
-      "title": "Unbekannte Zeilen",
-      "description": "Postfix-Zeilen, die der Exporter nicht kennt. Mit --log.level=debug werden sie geloggt.",
+      "title": "Unrecognised lines",
+      "description": "Postfix lines the exporter does not recognise. With --log.level=debug they are logged.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1170,7 +1171,7 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum(increase(postfix_exporter_log_lines_total{instance=~\"$instance\", result=\"unmatched\"}[$__range]))",
+          "expr": "(sum(increase(postfix_exporter_log_lines_total{instance=~\"$instance\", result=\"unmatched\"}[$__range])) or vector(0))",
           "legendFormat": "__auto",
           "instant": true,
           "range": false
@@ -1221,7 +1222,7 @@
     {
       "id": 17,
       "type": "row",
-      "title": "Mail-Queue",
+      "title": "Mail queue",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1234,7 +1235,7 @@
     {
       "id": 18,
       "type": "timeseries",
-      "title": "Nachrichten nach Queue",
+      "title": "Messages by queue",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1303,7 +1304,7 @@
     {
       "id": 19,
       "type": "timeseries",
-      "title": "Älteste Nachricht nach Queue",
+      "title": "Oldest message by queue",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1371,7 +1372,7 @@
     {
       "id": 20,
       "type": "timeseries",
-      "title": "Queue-Größe",
+      "title": "Queue size",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1439,7 +1440,7 @@
     {
       "id": 21,
       "type": "timeseries",
-      "title": "Empfänger in der Queue",
+      "title": "Recipients in the queue",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1507,7 +1508,7 @@
     {
       "id": 22,
       "type": "row",
-      "title": "Zustellung",
+      "title": "Delivery",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -1520,8 +1521,8 @@
     {
       "id": 23,
       "type": "timeseries",
-      "title": "Zustellversuche nach Status",
-      "description": "Versuche pro Empfänger und Minute, alle Zustelldienste.",
+      "title": "Delivery attempts by status",
+      "description": "Attempts per recipient and minute, all delivery services.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1589,8 +1590,8 @@
     {
       "id": 24,
       "type": "timeseries",
-      "title": "Zustellversuche nach Dienst",
-      "description": "smtp, lmtp, local, virtual, pipe ... wie in master.cf benannt.",
+      "title": "Delivery attempts by service",
+      "description": "smtp, lmtp, local, virtual, pipe ... as named in master.cf.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1658,8 +1659,8 @@
     {
       "id": 25,
       "type": "timeseries",
-      "title": "Laufzeit bis Zustellung (p50 / p95)",
-      "description": "Zeit von der Annahme bis zur erfolgreichen Zustellung (delay=).",
+      "title": "Delay until delivery (p50 / p95)",
+      "description": "Time from arrival to successful delivery (delay=).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1736,8 +1737,8 @@
     {
       "id": 26,
       "type": "timeseries",
-      "title": "Laufzeit nach Phase (p95)",
-      "description": "delays=a/b/c/d: vor dem Queue-Manager, im Queue-Manager, Verbindungsaufbau, Übertragung.",
+      "title": "Delay by stage (p95)",
+      "description": "delays=a/b/c/d: before the queue manager, in the queue manager, connection setup, transmission.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1805,8 +1806,8 @@
     {
       "id": 27,
       "type": "table",
-      "title": "Zustellversuche nach DSN",
-      "description": "DSN-Codes im Zeitraum: 4.x.x vorübergehend, 5.x.x dauerhaft (RFC 3463).",
+      "title": "Delivery attempts by DSN",
+      "description": "DSN codes in the time range: 4.x.x temporary, 5.x.x permanent (RFC 3463). More than 200 distinct codes appear as other.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1846,10 +1847,10 @@
               "__name__": true
             },
             "renameByName": {
-              "service": "Dienst",
+              "service": "Service",
               "status": "Status",
               "dsn": "DSN",
-              "Value": "Anzahl"
+              "Value": "Count"
             },
             "indexByName": {
               "service": 0,
@@ -1885,7 +1886,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Anzahl"
+              "options": "Count"
             },
             "properties": [
               {
@@ -1904,7 +1905,7 @@
         },
         "sortBy": [
           {
-            "displayName": "Anzahl",
+            "displayName": "Count",
             "desc": true
           }
         ]
@@ -1913,8 +1914,8 @@
     {
       "id": 28,
       "type": "bargauge",
-      "title": "Antwort-Klassen",
-      "description": "Klassifizierte Antworten der Gegenstelle (replies.delivery in der Konfiguration).",
+      "title": "Reply classes",
+      "description": "Classified replies of the remote side (replies.delivery in the configuration).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -1980,7 +1981,7 @@
     {
       "id": 29,
       "type": "timeseries",
-      "title": "Ausgehende Verbindungsfehler",
+      "title": "Outbound connection failures",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -2049,8 +2050,8 @@
     {
       "id": 30,
       "type": "timeseries",
-      "title": "Bounce-Benachrichtigungen",
-      "description": "Vom bounce-Dienst erzeugte Benachrichtigungen (NDR, Verzögerung, DSN).",
+      "title": "Bounce notifications",
+      "description": "Notifications generated by the bounce service (NDR, delay, DSN).",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -2117,29 +2118,16 @@
     },
     {
       "id": 31,
-      "type": "row",
-      "title": "Eingang (smtpd)",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 58,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 32,
       "type": "timeseries",
-      "title": "Verbindungen",
-      "description": "",
+      "title": "Queue manager",
+      "description": "removed: message finished (delivered, bounced or expired). expired: returned to the sender after maximal_queue_lifetime; force-expired: via postsuper -e.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 59,
+        "y": 58,
         "w": 12,
         "h": 8
       },
@@ -2150,8 +2138,17 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum by (service) (rate(postfix_smtpd_connections_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
-          "legendFormat": "{{service}}"
+          "expr": "sum by (instance) (rate(postfix_qmgr_messages_removed_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "removed"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "B",
+          "expr": "sum by (type) (rate(postfix_qmgr_messages_expired_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{type}}"
         }
       ],
       "fieldConfig": {
@@ -2198,9 +2195,167 @@
       }
     },
     {
+      "id": 32,
+      "type": "bargauge",
+      "title": "Replies without status",
+      "description": "Replies of the remote side without a delivery status, e.g. greylisting on RCPT TO (replies.smtp in the configuration).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 58,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sort_desc(sum by (code, text) (increase(postfix_smtp_replies_total{instance=~\"$instance\"}[$__range])) > 0)",
+          "legendFormat": "{{code}} {{text}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "maxVizHeight": 24,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
       "id": 33,
+      "type": "row",
+      "title": "Inbound (smtpd)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 34,
       "type": "timeseries",
-      "title": "Angenommene Nachrichten",
+      "title": "Connections",
+      "description": "Connections and regular disconnections with command statistics; the difference is aborted sessions. Values beyond the label limits appear as other (README: Bounded label values).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 67,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sum by (service) (rate(postfix_smtpd_connections_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{service}}"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "B",
+          "expr": "sum by (service) (rate(postfix_smtpd_disconnections_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{service}} ended regularly"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cpm",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisBorderShow": false,
+            "gradientMode": "none",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 35,
+      "type": "timeseries",
+      "title": "Accepted messages",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -2208,7 +2363,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 59,
+        "y": 67,
         "w": 12,
         "h": 8
       },
@@ -2267,17 +2422,17 @@
       }
     },
     {
-      "id": 34,
+      "id": 36,
       "type": "timeseries",
-      "title": "Rejects nach Grund",
-      "description": "Klassen aus dem Reject-Text: dnsbl, relay_denied, unknown_recipient, client, helo, sender ...",
+      "title": "Rejects by reason",
+      "description": "Classes from the reject text: dnsbl, relay_denied, unknown_recipient, client, helo, sender ...",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 67,
+        "y": 75,
         "w": 12,
         "h": 8
       },
@@ -2336,17 +2491,17 @@
       }
     },
     {
-      "id": 35,
+      "id": 37,
       "type": "bargauge",
-      "title": "Reject-Texte im Zeitraum",
-      "description": "Klassifiziert nach replies.reject in der Konfiguration.",
+      "title": "Reject texts in the time range",
+      "description": "Classified by replies.reject in the configuration.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 67,
+        "y": 75,
         "w": 12,
         "h": 8
       },
@@ -2403,17 +2558,17 @@
       }
     },
     {
-      "id": 36,
+      "id": 38,
       "type": "timeseries",
-      "title": "Abgebrochene Sitzungen",
-      "description": "lost connection, timeout und too many errors, nach letztem Befehl.",
+      "title": "Aborted sessions",
+      "description": "lost connection, timeout and too many errors, by the last command.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 75,
+        "y": 83,
         "w": 12,
         "h": 8
       },
@@ -2425,7 +2580,7 @@
           },
           "refId": "A",
           "expr": "sum by (reason, after) (rate(postfix_smtpd_aborted_connections_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
-          "legendFormat": "{{reason}} nach {{after}}"
+          "legendFormat": "{{reason}} after {{after}}"
         }
       ],
       "fieldConfig": {
@@ -2472,17 +2627,17 @@
       }
     },
     {
-      "id": 37,
+      "id": 39,
       "type": "timeseries",
-      "title": "Fehlgeschlagene SMTP-Befehle",
-      "description": "Aus der Befehlsstatistik am Sitzungsende, z.B. rcpt=0/1.",
+      "title": "Failed SMTP commands",
+      "description": "From the command statistics at the end of a session, e.g. rcpt=0/1.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 75,
+        "y": 83,
         "w": 12,
         "h": 8
       },
@@ -2541,17 +2696,17 @@
       }
     },
     {
-      "id": 38,
+      "id": 40,
       "type": "timeseries",
-      "title": "SASL-Fehler",
-      "description": "",
+      "title": "SASL failures",
+      "description": "method other: a mechanism the client made up, often a scanner.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 83,
+        "y": 91,
         "w": 12,
         "h": 8
       },
@@ -2610,17 +2765,17 @@
       }
     },
     {
-      "id": 39,
+      "id": 41,
       "type": "timeseries",
-      "title": "Limits und Reverse-DNS",
-      "description": "Von anvil durchgesetzte Client-Limits und fehlerhafte Reverse-DNS-Einträge.",
+      "title": "Limits and reverse DNS",
+      "description": "Client limits enforced by anvil and broken reverse DNS entries.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 83,
+        "y": 91,
         "w": 12,
         "h": 8
       },
@@ -2688,30 +2843,17 @@
       }
     },
     {
-      "id": 40,
-      "type": "row",
-      "title": "TLS",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 91,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 41,
+      "id": 42,
       "type": "timeseries",
-      "title": "Eingehend nach Protokoll",
-      "description": "",
+      "title": "Logged-only rejects",
+      "description": "Rejects that warn_if_reject only logs. Shows, before a restriction is enforced, what it would reject.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 92,
+        "y": 99,
         "w": 12,
         "h": 8
       },
@@ -2722,17 +2864,8 @@
             "uid": "${datasource}"
           },
           "refId": "A",
-          "expr": "sum by (protocol) (rate(postfix_smtpd_tls_connections_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
-          "legendFormat": "{{protocol}}"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "refId": "B",
-          "expr": "sum by (service) (rate(postfix_smtpd_tls_errors_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
-          "legendFormat": "Fehler {{service}}"
+          "expr": "sum by (reason) (rate(postfix_smtpd_reject_warnings_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{reason}}"
         }
       ],
       "fieldConfig": {
@@ -2779,17 +2912,177 @@
       }
     },
     {
-      "id": 42,
+      "id": 43,
       "type": "timeseries",
-      "title": "Ausgehend nach Vertrauensstufe",
-      "description": "Anonymous/Untrusted: verschlüsselt ohne geprüftes Zertifikat; Trusted/Verified: geprüft.",
+      "title": "Access actions",
+      "description": "Actions from access tables other than reject: discard, hold, filter, redirect, warn, bcc.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 92,
+        "y": 99,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sum by (action, command) (rate(postfix_smtpd_access_actions_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{action}} at {{command}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cpm",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisBorderShow": false,
+            "gradientMode": "none",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 44,
+      "type": "row",
+      "title": "TLS",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 107,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 45,
+      "type": "timeseries",
+      "title": "Inbound by protocol",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 108,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "sum by (protocol) (rate(postfix_smtpd_tls_connections_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{protocol}}"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "B",
+          "expr": "sum by (service) (rate(postfix_smtpd_tls_errors_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "errors {{service}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cpm",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisBorderShow": false,
+            "gradientMode": "none",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 46,
+      "type": "timeseries",
+      "title": "Outbound by trust level",
+      "description": "Anonymous/Untrusted: encrypted without a verified certificate; Trusted/Verified: verified.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 108,
         "w": 12,
         "h": 8
       },
@@ -2848,22 +3141,22 @@
       }
     },
     {
-      "id": 43,
+      "id": 47,
       "type": "row",
       "title": "postscreen",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 100,
+        "y": 116,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 44,
+      "id": 48,
       "type": "timeseries",
-      "title": "Verbindungen und Ergebnisse",
+      "title": "Connections and results",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -2871,7 +3164,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 101,
+        "y": 117,
         "w": 12,
         "h": 8
       },
@@ -2883,7 +3176,7 @@
           },
           "refId": "A",
           "expr": "sum by (instance) (rate(postfix_postscreen_connections_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
-          "legendFormat": "Verbindungen"
+          "legendFormat": "connections"
         },
         {
           "datasource": {
@@ -2957,9 +3250,9 @@
       }
     },
     {
-      "id": 45,
+      "id": 49,
       "type": "timeseries",
-      "title": "Fehlgeschlagene Tests",
+      "title": "Failed tests",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -2967,7 +3260,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 101,
+        "y": 117,
         "w": 12,
         "h": 8
       },
@@ -2988,7 +3281,7 @@
           },
           "refId": "B",
           "expr": "sum by (list) (rate(postfix_postscreen_access_list_matches_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
-          "legendFormat": "Liste {{list}}"
+          "legendFormat": "list {{list}}"
         }
       ],
       "fieldConfig": {
@@ -3035,30 +3328,108 @@
       }
     },
     {
-      "id": 46,
-      "type": "row",
-      "title": "Filter und lokale Einlieferung",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 109,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 47,
+      "id": 50,
       "type": "timeseries",
-      "title": "Milter-Aktionen",
-      "description": "Von Miltern (rspamd, opendkim, ...) verlangte Aktionen.",
+      "title": "DNSBL score of listed clients (p50 / p95)",
+      "description": "Summed score from postscreen_dnsbl_sites for clients listed by at least one list. If p95 sits just below postscreen_dnsbl_threshold, the weights are worth a look.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 110,
+        "y": 125,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le, instance) (rate(postfix_postscreen_dnsbl_rank_bucket{instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(postfix_postscreen_dnsbl_rank_bucket{instance=~\"$instance\"}[$__rate_interval])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisBorderShow": false,
+            "gradientMode": "none",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 51,
+      "type": "row",
+      "title": "Filters and local submission",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 131,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 52,
+      "type": "timeseries",
+      "title": "Milter actions",
+      "description": "Actions requested by milters (rspamd, opendkim, ...).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 132,
         "w": 12,
         "h": 8
       },
@@ -3117,17 +3488,17 @@
       }
     },
     {
-      "id": 48,
+      "id": 53,
       "type": "timeseries",
-      "title": "header/body_checks und pickup",
-      "description": "",
+      "title": "header/body_checks and pickup",
+      "description": "cleanup processes every message, whether from smtpd or pickup.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 110,
+        "y": 132,
         "w": 12,
         "h": 8
       },
@@ -3148,7 +3519,16 @@
           },
           "refId": "B",
           "expr": "sum by (instance) (rate(postfix_pickup_messages_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
-          "legendFormat": "lokal eingeliefert"
+          "legendFormat": "submitted locally"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "C",
+          "expr": "sum by (service) (rate(postfix_cleanup_messages_total{instance=~\"$instance\"}[$__rate_interval])) * 60",
+          "legendFormat": "{{service}} processed"
         }
       ],
       "fieldConfig": {
@@ -3195,22 +3575,22 @@
       }
     },
     {
-      "id": 49,
+      "id": 54,
       "type": "row",
-      "title": "Betrieb",
+      "title": "Operations",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 118,
+        "y": 140,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 50,
+      "id": 55,
       "type": "timeseries",
-      "title": "Warnungen und Fehler",
+      "title": "Warnings and errors",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -3218,7 +3598,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 119,
+        "y": 141,
         "w": 12,
         "h": 8
       },
@@ -3277,17 +3657,17 @@
       }
     },
     {
-      "id": 51,
+      "id": 56,
       "type": "timeseries",
-      "title": "Prozessfehler",
-      "description": "exit: Prozess mit Fehler beendet; signal: abgestürzt; throttling: master startet den Dienst wegen wiederholter Fehler verzögert.",
+      "title": "Process failures",
+      "description": "exit: process ended with an error; signal: crashed; throttling: master delays starting the service after repeated failures.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 119,
+        "y": 141,
         "w": 12,
         "h": 8
       },
@@ -3346,17 +3726,17 @@
       }
     },
     {
-      "id": 52,
+      "id": 57,
       "type": "timeseries",
-      "title": "Log-Zeilen des Exporters",
-      "description": "matched: in Metriken; ignored: bekannt, ohne eigene Metrik; unmatched: unbekannt; foreign: andere Programme; invalid: kein Syslog-Format.",
+      "title": "Log lines of the exporter",
+      "description": "matched: turned into metrics; ignored: known, without a metric of its own; unmatched: unrecognised; foreign: other programs; invalid: not syslog format, or part of an overlong line.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 0,
-        "y": 127,
+        "y": 149,
         "w": 12,
         "h": 8
       },
@@ -3415,17 +3795,17 @@
       }
     },
     {
-      "id": 53,
+      "id": 58,
       "type": "timeseries",
-      "title": "Nachrichtengröße (p95)",
-      "description": "Größe der Nachrichten beim Eintritt in die active-Queue.",
+      "title": "Message size (p95)",
+      "description": "Size of messages on entering the active queue.",
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
       },
       "gridPos": {
         "x": 12,
-        "y": 127,
+        "y": 149,
         "w": 12,
         "h": 8
       },
@@ -3437,12 +3817,666 @@
           },
           "refId": "A",
           "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(postfix_qmgr_message_size_bytes_bucket{instance=~\"$instance\"}[$__rate_interval])))",
-          "legendFormat": "Größe p95"
+          "legendFormat": "size p95"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisBorderShow": false,
+            "gradientMode": "none",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 59,
+      "type": "row",
+      "title": "Exporter",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 157,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 60,
+      "type": "stat",
+      "title": "Version",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 158,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "max by (version) (postfix_exporter_build_info{instance=~\"$instance\"})",
+          "legendFormat": "{{version}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "name",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 61,
+      "type": "stat",
+      "title": "Uptime",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 158,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "time() - max(process_start_time_seconds and on (job, instance) postfix_exporter_build_info{instance=~\"$instance\"})",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "mappings": [],
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "noValue": "no scrape"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 62,
+      "type": "stat",
+      "title": "Last log line",
+      "description": "Age of the last Postfix line read. Red from 1 hour: that is where PostfixNoLogLines fires (after 10 minutes). On a quiet server this can be normal.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 158,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "time() - max(postfix_exporter_last_log_line_timestamp_seconds{instance=~\"$instance\"} > 0)",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1800
+              },
+              {
+                "color": "red",
+                "value": 3600
+              }
+            ]
+          },
+          "noValue": "none yet"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 63,
+      "type": "stat",
+      "title": "Log source restarts",
+      "description": "How often the log or journalctl failed and was restarted in the time range.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 158,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "(sum(increase(postfix_exporter_log_source_restarts_total{instance=~\"$instance\"}[$__range])) or vector(0))",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 64,
+      "type": "stat",
+      "title": "showq read",
+      "description": "Time taken to read the queue from showq. Red close to showq.timeout (default 10s): beyond it postfix_showq_up is 0, and with a large queue every scrape takes that long.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 158,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "max(postfix_showq_scrape_duration_seconds{instance=~\"$instance\"})",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "mappings": [],
+          "color": {
+            "mode": "thresholds",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "red",
+                "value": 8
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 65,
+      "type": "stat",
+      "title": "Scrape",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 158,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "min(up{instance=~\"$instance\"} and on (job, instance) postfix_exporter_build_info{instance=~\"$instance\"})",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds",
+            "fixedColor": "text"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "no scrape"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 66,
+      "type": "timeseries",
+      "title": "CPU",
+      "description": "1 = one core.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 162,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "rate(process_cpu_seconds_total[$__rate_interval]) and on (job, instance) postfix_exporter_build_info{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisBorderShow": false,
+            "gradientMode": "none",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 67,
+      "type": "timeseries",
+      "title": "Memory",
+      "description": "If it grows without end, the time series are growing: see the label limits in the README.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 162,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "process_resident_memory_bytes and on (job, instance) postfix_exporter_build_info{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "axisBorderShow": false,
+            "gradientMode": "none",
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic-by-name"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 68,
+      "type": "timeseries",
+      "title": "showq read",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 162,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "refId": "A",
+          "expr": "postfix_showq_scrape_duration_seconds{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
           "custom": {
             "lineWidth": 2,
             "fillOpacity": 0,

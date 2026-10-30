@@ -113,6 +113,10 @@ vuln: ## Scan deps and reachable code for known vulnerabilities (govulncheck).
 .PHONY: sec
 sec: lint vuln ## Security checks: golangci-lint (incl. gosec) + govulncheck.
 
+.PHONY: dashboards
+dashboards: ## Regenerate contrib/grafana/postfix.json from generate.py.
+	python3 contrib/grafana/generate.py contrib/grafana/postfix.json
+
 .PHONY: tidy
 tidy: ## Tidy and verify go.mod/go.sum.
 	$(GO) mod tidy

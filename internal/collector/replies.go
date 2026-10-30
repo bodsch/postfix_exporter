@@ -56,16 +56,14 @@ func parseReply(s, enhancedCode string) reply {
 
 // classifier maps replies to label texts by configured rules.
 type classifier struct {
-	name   string
-	rules  []config.ReplyRule
-	max    int
-	seen   map[string]bool
-	logger *slog.Logger
-	warned bool
+	rules []config.ReplyRule
+	texts *limiter
 }
 
 func newClassifier(name string, rules []config.ReplyRule, maxTexts int, logger *slog.Logger) *classifier {
-	return &classifier{name: name, rules: rules, max: maxTexts, seen: make(map[string]bool), logger: logger}
+	return &classifier{rules: rules, texts: newLimiter(maxTexts, logger,
+		"too many distinct reply texts, counting further ones as \"other\"; check the replies rules",
+		"rules", name, "max_texts", maxTexts)}
 }
 
 func (c *classifier) enabled() bool { return len(c.rules) > 0 }
@@ -85,24 +83,7 @@ func (c *classifier) classify(r reply, status string) (string, bool) {
 		if m == nil {
 			continue
 		}
-		return c.limit(string(rule.Regexp.ExpandString(nil, rule.Text, v, m))), true
+		return c.texts.value(string(rule.Regexp.ExpandString(nil, rule.Text, v, m))), true
 	}
 	return "", false
-}
-
-// limit returns text, or "other" once max distinct texts were seen.
-func (c *classifier) limit(text string) string {
-	if c.seen[text] {
-		return text
-	}
-	if len(c.seen) >= c.max {
-		if !c.warned {
-			c.warned = true
-			c.logger.Warn("too many distinct reply texts, counting further ones as \"other\"; check the replies rules",
-				"rules", c.name, "max_texts", c.max)
-		}
-		return "other"
-	}
-	c.seen[text] = true
-	return text
 }

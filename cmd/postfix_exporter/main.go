@@ -189,10 +189,16 @@ func newHandler(g prometheus.Gatherer, metricsPath string, maxRequests int, logg
 			}
 		}
 		buf := &bufferedResponse{header: w.Header()}
-		metrics.ServeHTTP(buf, r)
-		if slots != nil {
-			<-slots
-		}
+		func() {
+			// Released even if the handler panics, which net/http
+			// recovers from; a lost slot would never come back. A
+			// panicking collector ends the process anyway: the
+			// registry runs collectors in goroutines of their own.
+			if slots != nil {
+				defer func() { <-slots }()
+			}
+			metrics.ServeHTTP(buf, r)
+		}()
 		buf.sendTo(w)
 	})
 

@@ -1,50 +1,50 @@
 # postfix_exporter
 
-Prometheus-Exporter für einen Postfix-Mailserver. Ein einzelnes, statisches Binary liefert:
+Prometheus exporter for a Postfix mail server. A single static binary provides:
 
-- **Mail-Queue** – Anzahl, Empfänger, Größe und Alter der Nachrichten pro Queue, live über den `showq`-Dienst
-- **Zustellung** – Status (sent, deferred, bounced, …) pro Zustelldienst und DSN-Code, Laufzeiten als Histogramm
-  inklusive der vier Phasen aus `delays=a/b/c/d`, für smtp, lmtp, local, virtual, pipe und error
-- **Eingang** – Verbindungen, angenommene Nachrichten, Rejects mit automatischer Grund-Klasse, abgebrochene
-  Sitzungen, fehlgeschlagene SMTP-Befehle, SASL-Fehler, TLS, anvil-Limits, Reverse-DNS
-- **postscreen**, **Milter**, **header/body_checks**, **bounce**, **pickup**
-- **Betrieb** – Log-Meldungen nach Dienst und Schweregrad, abgestürzte und gedrosselte Prozesse
-- optional: **Klassifizierung der Antworttexte** über reguläre Ausdrücke
+- **Mail queue** – number, recipients, size and age of the messages per queue, live via the `showq` service
+- **Delivery** – status (sent, deferred, bounced, …) per delivery service and DSN code, delays as histograms
+  including the four stages of `delays=a/b/c/d`, for smtp, lmtp, local, virtual, pipe and error
+- **Inbound** – connections, accepted messages, rejects with an automatic reason class, aborted sessions,
+  failed SMTP commands, SASL failures, TLS, anvil limits, reverse DNS
+- **postscreen**, **milters**, **header/body_checks**, **bounce**, **pickup**
+- **Operations** – log messages by service and severity, crashed and throttled processes
+- optional: **classification of reply texts** using regular expressions
 
-Die Log-Daten kommen aus einer Syslog-Datei (auch Postfix' eigenes `maillog_file`) oder aus dem
-systemd-Journal. Ein Grafana-Dashboard und Alert-Regeln liegen unter [`contrib/`](contrib/).
+The log data comes from a syslog file (including Postfix's own `maillog_file`) or from the systemd journal.
+A Grafana dashboard and alerting rules are in [`contrib/`](contrib/).
 
-Der Exporter vereint den Funktionsumfang von
-[Hsn723/postfix_exporter](https://github.com/Hsn723/postfix_exporter) (showq, viele Log-Metriken) und
-[sergeymakinen/postfix_exporter](https://github.com/sergeymakinen/postfix_exporter) (robuster Zeilen-Parser,
-Antwort-Klassifizierung, Milter, Schweregrade, Replay-Modus); siehe [NOTICE](NOTICE). Docker und Kubernetes
-werden bewusst nicht unterstützt, und es wird genau eine Postfix-Instanz überwacht.
+The exporter combines the features of
+[Hsn723/postfix_exporter](https://github.com/Hsn723/postfix_exporter) (showq, many log metrics) and
+[sergeymakinen/postfix_exporter](https://github.com/sergeymakinen/postfix_exporter) (robust line parser,
+reply classification, milters, severities, replay mode); see [NOTICE](NOTICE). Docker and Kubernetes are
+deliberately not supported, and exactly one Postfix instance is monitored.
 
-## Bauen
+## Building
 
 ```sh
-make            # = make build, ./bin/postfix_exporter (statisch, CGO_ENABLED=0)
-make test       # Tests mit Race-Detector
+make            # = make build, ./bin/postfix_exporter (static, CGO_ENABLED=0)
+make test       # tests with the race detector
 make ci         # fmt, vet, lint, vuln, test, build
-make dist       # Release-Archive für linux/amd64 und linux/arm64
+make dist       # release archives for linux/amd64 and linux/arm64
 ```
 
-## Rechte
+## Permissions
 
-| Zugriff                              | nötig für                                       | Lösung                                                       |
+| Access                               | Needed for                                      | Solution                                                     |
 |--------------------------------------|-------------------------------------------------|--------------------------------------------------------------|
-| `/var/spool/postfix/public/showq`    | Queue-Metriken                                  | Gruppe `postdrop` (`public/` ist `0710 postfix:postdrop`)    |
-| Systemd-Journal                      | `log.source: journal`                           | Gruppe `systemd-journal`                                     |
-| `/var/log/mail.log`                  | `log.source: file`                              | Gruppe `adm` (Debian/Ubuntu) bzw. `log` (Arch)               |
+| `/var/spool/postfix/public/showq`    | queue metrics                                   | group `postdrop` (`public/` is `0710 postfix:postdrop`)      |
+| systemd journal                      | `log.source: journal`                           | group `systemd-journal`                                      |
+| `/var/log/mail.log`                  | `log.source: file`                              | group `adm` (Debian/Ubuntu) or `log` (Arch)                  |
 
-Die systemd-Unit in [`contrib/postfix_exporter.service`](contrib/postfix_exporter.service) setzt die Gruppen
-über `SupplementaryGroups=` und ist stark gehärtet.
+The systemd unit in [`contrib/postfix_exporter.service`](contrib/postfix_exporter.service) sets the groups
+via `SupplementaryGroups=` and is heavily hardened.
 
-## Konfiguration
+## Configuration
 
-Ohne `--config.file` gelten Defaults: Log aus `/var/log/mail.log`, Queue über
-`unix:///var/spool/postfix/public/showq`. Alle Optionen mit Erklärung stehen in
-[`config.example.yml`](config.example.yml). Die häufigsten Anpassungen:
+Without `--config.file` the defaults apply: log from `/var/log/mail.log`, queue via
+`unix:///var/spool/postfix/public/showq`. All options are explained in
+[`config.example.yml`](config.example.yml). The most common adjustments:
 
 ```yaml
 log:
@@ -53,12 +53,28 @@ log:
     units: [postfix.service]      # Debian/Ubuntu: postfix@-.service
 
 services:
-  smtp: [encrypt]                 # master.cf-Dienste, deren Name nicht auf den Daemon-Typ endet
+  smtp: [encrypt]                 # master.cf services whose name does not end in the daemon type
 ```
 
-Dienste wie `submission/smtpd` oder `relay/smtp` (über `syslog_name`) erkennt der Exporter selbst. Sie
-erscheinen im Label `service` getrennt, so lassen sich z. B. SASL-Fehler auf Port 587 von denen auf Port 25
-unterscheiden.
+The exporter recognises services such as `submission/smtpd` or `relay/smtp` (via `syslog_name`) by itself.
+They appear separately in the `service` label, so that, for example, SASL failures on port 587 can be told
+apart from those on port 25.
+
+### Bounded label values
+
+Local users can forge log lines (`logger -t postfix/x`), and remote clients and servers choose parts of
+them. So that this cannot create an unbounded number of time series, the exporter counts values beyond a
+limit as `other` and logs a warning once:
+
+| Label                              | Limit                                  |
+|------------------------------------|----------------------------------------|
+| `service`                          | `max_services` (default 100)           |
+| `text` of the reply metrics        | `replies.max_texts` (default 100)      |
+| `dsn`, `code`, `enhanced_code`     | 200 distinct codes in total            |
+| `method` of SASL failures          | registered SASL mechanisms only        |
+
+With `log.source: journal` and `units`, the exporter only reads lines of the Postfix unit; forged tags from
+other users never reach it.
 
 ```sh
 postfix_exporter --config.file=/etc/postfix_exporter/config.yml --config.check
@@ -66,142 +82,142 @@ postfix_exporter --config.file=/etc/postfix_exporter/config.yml --config.check
 
 ### Flags
 
-| Flag                   | Default    | Bedeutung                                                                       |
+| Flag                   | Default    | Meaning                                                                         |
 |------------------------|------------|---------------------------------------------------------------------------------|
-| `--config.file`        | –          | Konfigurationsdatei                                                             |
-| `--config.check`       | `false`    | Konfiguration prüfen und beenden                                                |
-| `--web.listen-address` | `:9154`    | HTTP-Adresse                                                                    |
-| `--web.telemetry-path` | `/metrics` | Pfad der Metriken                                                               |
-| `--web.config.file`    | –          | TLS und Basic Auth ([Format](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md)) |
-| `--web.max-requests`   | `3`        | parallele Scrapes, 0 = unbegrenzt                                               |
-| `--log.level`          | `info`     | `debug` loggt jede Postfix-Zeile, die der Exporter nicht kennt                  |
-| `--replay`             | `false`    | vorhandenes Log einlesen, Metriken ausgeben, beenden                            |
-| `--replay.since`       | `24h`      | Zeitraum für `--replay` mit dem Journal                                         |
+| `--config.file`        | –          | configuration file                                                              |
+| `--config.check`       | `false`    | validate the configuration and exit                                             |
+| `--web.listen-address` | `:9154`    | HTTP address                                                                    |
+| `--web.telemetry-path` | `/metrics` | path of the metrics                                                             |
+| `--web.config.file`    | –          | TLS and basic auth ([format](https://github.com/prometheus/exporter-toolkit/blob/master/docs/web-configuration.md)) |
+| `--web.max-requests`   | `3`        | parallel scrapes, 0 = unlimited                                                 |
+| `--log.level`          | `info`     | `debug` logs every Postfix line the exporter does not recognise                 |
+| `--replay`             | `false`    | read the existing log, print the metrics and exit                               |
+| `--replay.since`       | `24h`      | time span for `--replay` with the journal                                       |
 
-### Antwort-Klassifizierung testen
+### Testing the reply classification
 
-Regeln unter `replies:` lassen sich gegen das echte Log entwickeln, ohne den laufenden Exporter anzufassen:
+Rules under `replies:` can be developed against the real log without touching the running exporter:
 
 ```sh
 postfix_exporter --config.file=./config.yml --replay | grep -E '_replies_total|_rejects_total'
 ```
 
-## Metriken
+## Metrics
 
-Alle Log-Metriken sind Zähler seit dem Start des Exporters. Er liest das Log ab dem Startzeitpunkt, wie
-`tail -F`, auch über Logrotation hinweg.
+All log metrics are counters since the exporter started. It reads the log from the time it starts, like
+`tail -F`, including across log rotation.
 
-### Queue (live über showq)
+### Queue (live via showq)
 
-| Metrik                                       | Labels  | Bedeutung                                    |
+| Metric                                       | Labels  | Meaning                                      |
 |----------------------------------------------|---------|----------------------------------------------|
-| `postfix_showq_up`                           |         | showq erreichbar (1) oder nicht (0)          |
-| `postfix_showq_scrape_duration_seconds`      |         | Dauer des Queue-Abrufs                       |
-| `postfix_queue_messages`                     | `queue` | Nachrichten (maildrop, incoming, active, deferred, hold) |
-| `postfix_queue_recipients`                   | `queue` | Empfänger                                    |
-| `postfix_queue_size_bytes`                   | `queue` | Gesamtgröße                                  |
-| `postfix_queue_oldest_message_age_seconds`   | `queue` | Alter der ältesten Nachricht                 |
-| `postfix_queue_message_age_seconds`          | `queue` | Histogramm: Alter                            |
-| `postfix_queue_message_size_bytes`           | `queue` | Histogramm: Größe                            |
+| `postfix_showq_up`                           |         | showq reachable (1) or not (0)               |
+| `postfix_showq_scrape_duration_seconds`      |         | duration of the queue read                   |
+| `postfix_queue_messages`                     | `queue` | messages (maildrop, incoming, active, deferred, hold) |
+| `postfix_queue_recipients`                   | `queue` | recipients                                   |
+| `postfix_queue_size_bytes`                   | `queue` | total size                                   |
+| `postfix_queue_oldest_message_age_seconds`   | `queue` | age of the oldest message                    |
+| `postfix_queue_message_age_seconds`          | `queue` | histogram: age                               |
+| `postfix_queue_message_size_bytes`           | `queue` | histogram: size                              |
 
-### Zustellung
+### Delivery
 
-| Metrik                                    | Labels                                         | Bedeutung                                      |
+| Metric                                    | Labels                                         | Meaning                                        |
 |-------------------------------------------|------------------------------------------------|------------------------------------------------|
-| `postfix_delivery_status_total`           | `service`, `status`, `dsn`                     | Zustellversuche pro Empfänger                  |
-| `postfix_delivery_delay_seconds`          | `service`, `status`                            | Histogramm: Annahme bis Zustellversuch         |
-| `postfix_delivery_stage_delay_seconds`    | `service`, `stage`                             | Histogramm der Phasen erfolgreicher Zustellungen |
-| `postfix_delivery_replies_total`          | `service`, `status`, `code`, `enhanced_code`, `text` | klassifizierte Antworten (`replies.delivery`) |
+| `postfix_delivery_status_total`           | `service`, `status`, `dsn`                     | delivery attempts per recipient                |
+| `postfix_delivery_delay_seconds`          | `service`, `status`                            | histogram: arrival to delivery attempt         |
+| `postfix_delivery_stage_delay_seconds`    | `service`, `stage`                             | histogram of the stages of successful deliveries |
+| `postfix_delivery_replies_total`          | `service`, `status`, `code`, `enhanced_code`, `text` | classified replies (`replies.delivery`) |
 | `postfix_smtp_connection_failures_total`  | `service`, `reason`                            | timeout, refused, no_route, unreachable, other |
-| `postfix_smtp_tls_connections_total`      | `service`, `trust`, `protocol`, `cipher`       | ausgehende TLS-Verbindungen                    |
-| `postfix_smtp_replies_total`              | `service`, `code`, `enhanced_code`, `text`     | Antworten ohne Status, z. B. Greylisting (`replies.smtp`) |
-| `postfix_qmgr_message_size_bytes`         |                                                | Histogramm: Größe beim Eintritt in die active-Queue |
-| `postfix_qmgr_message_recipients`         |                                                | Histogramm: Empfänger pro Nachricht            |
-| `postfix_qmgr_messages_removed_total`     |                                                | aus der Queue entfernte Nachrichten            |
+| `postfix_smtp_tls_connections_total`      | `service`, `trust`, `protocol`, `cipher`       | outbound TLS connections                       |
+| `postfix_smtp_replies_total`              | `service`, `code`, `enhanced_code`, `text`     | replies without a status, e.g. greylisting (`replies.smtp`) |
+| `postfix_qmgr_message_size_bytes`         |                                                | histogram: size on entering the active queue   |
+| `postfix_qmgr_message_recipients`         |                                                | histogram: recipients per message              |
+| `postfix_qmgr_messages_removed_total`     |                                                | messages removed from the queue                |
 | `postfix_qmgr_messages_expired_total`     | `type`                                         | expired, force-expired                         |
 | `postfix_bounce_notifications_total`      | `recipient`, `type`                            | non_delivery, delivery_status, delay           |
 
-`service` ist der Dienstname aus master.cf, z. B. `smtp`, `relay/smtp`, `lmtp`, `local`. Vom Queue-Manager
-selbst entschiedene Verschiebungen („delivery temporarily suspended“) erscheinen mit `service="qmgr"`.
+`service` is the service name from master.cf, e.g. `smtp`, `relay/smtp`, `lmtp`, `local`. Deferrals decided
+by the queue manager itself ("delivery temporarily suspended") appear with `service="qmgr"`.
 
-### Eingang
+### Inbound
 
-| Metrik                                       | Labels                                      | Bedeutung                                        |
+| Metric                                       | Labels                                      | Meaning                                          |
 |----------------------------------------------|---------------------------------------------|--------------------------------------------------|
-| `postfix_smtpd_connections_total`            | `service`                                   | Verbindungen                                     |
-| `postfix_smtpd_disconnections_total`         | `service`                                   | reguläre Verbindungsenden                        |
-| `postfix_smtpd_commands_total`               | `service`, `command`, `result`              | SMTP-Befehle (ok/failed) aus der Sitzungsstatistik |
-| `postfix_smtpd_aborted_connections_total`    | `service`, `reason`, `after`                | lost, timeout, too_many_errors nach Befehl       |
-| `postfix_smtpd_messages_accepted_total`      | `service`, `authenticated`                  | angenommene Nachrichten                          |
-| `postfix_smtpd_rejects_total`                | `service`, `command`, `code`, `reason`      | Rejects mit Grund-Klasse (s. u.)                 |
-| `postfix_smtpd_reject_warnings_total`        | `service`, `command`, `reason`              | nur geloggte Rejects (`warn_if_reject`)          |
-| `postfix_smtpd_reject_replies_total`         | `service`, `command`, `code`, `enhanced_code`, `text` | klassifizierte Rejects (`replies.reject`) |
+| `postfix_smtpd_connections_total`            | `service`                                   | connections                                      |
+| `postfix_smtpd_disconnections_total`         | `service`                                   | regular disconnections                           |
+| `postfix_smtpd_commands_total`               | `service`, `command`, `result`              | SMTP commands (ok/failed) from the session statistics |
+| `postfix_smtpd_aborted_connections_total`    | `service`, `reason`, `after`                | lost, timeout, too_many_errors after a command   |
+| `postfix_smtpd_messages_accepted_total`      | `service`, `authenticated`                  | accepted messages                                |
+| `postfix_smtpd_rejects_total`                | `service`, `command`, `code`, `reason`      | rejects with a reason class (see below)          |
+| `postfix_smtpd_reject_warnings_total`        | `service`, `command`, `reason`              | rejects that were only logged (`warn_if_reject`) |
+| `postfix_smtpd_reject_replies_total`         | `service`, `command`, `code`, `enhanced_code`, `text` | classified rejects (`replies.reject`)   |
 | `postfix_smtpd_access_actions_total`         | `service`, `action`, `command`              | discard, hold, filter, redirect, warn, bcc       |
-| `postfix_smtpd_sasl_authentication_failures_total` | `service`, `method`                   | fehlgeschlagene Anmeldungen                      |
-| `postfix_smtpd_tls_connections_total`        | `service`, `trust`, `protocol`, `cipher`    | eingehende TLS-Verbindungen                      |
-| `postfix_smtpd_tls_errors_total`             | `service`                                   | fehlgeschlagene TLS-Handshakes                   |
+| `postfix_smtpd_sasl_authentication_failures_total` | `service`, `method`                   | failed logins (PLAIN, LOGIN, …, other)           |
+| `postfix_smtpd_tls_connections_total`        | `service`, `trust`, `protocol`, `cipher`    | inbound TLS connections                          |
+| `postfix_smtpd_tls_errors_total`             | `service`                                   | failed TLS handshakes                            |
 | `postfix_smtpd_reverse_dns_failures_total`   | `service`, `type`                           | not_resolve, not_listed, verification_failed     |
 | `postfix_smtpd_limits_exceeded_total`        | `service`, `limit`                          | connection_rate, connection_concurrency, message_rate, recipient_rate, newtls_rate, auth_rate |
-| `postfix_milter_actions_total`               | `service`, `action`                         | von Miltern verlangte Aktionen (smtpd, cleanup)  |
-| `postfix_cleanup_messages_total`             | `service`                                   | von cleanup verarbeitete Nachrichten             |
-| `postfix_cleanup_check_actions_total`        | `service`, `check`, `action`                | Aktionen von header_checks und body_checks       |
-| `postfix_pickup_messages_total`              |                                             | lokal eingelieferte Nachrichten (sendmail)       |
+| `postfix_milter_actions_total`               | `service`, `action`                         | actions requested by milters (smtpd, cleanup)    |
+| `postfix_cleanup_messages_total`             | `service`                                   | messages processed by cleanup                    |
+| `postfix_cleanup_check_actions_total`        | `service`, `check`, `action`                | actions of header_checks and body_checks         |
+| `postfix_pickup_messages_total`              |                                             | locally submitted messages (sendmail)            |
 
-Die Grund-Klasse `reason` der Rejects ergibt sich ohne Konfiguration aus den festen Textbausteinen von
-Postfix: `dnsbl`, `relay_denied`, `unknown_recipient`, `recipient`, `sender`, `client`, `helo`, `data`,
+The reason class `reason` of rejects is derived without any configuration from Postfix's fixed text
+phrases: `dnsbl`, `relay_denied`, `unknown_recipient`, `recipient`, `sender`, `client`, `helo`, `data`,
 `size`, `pipelining`, `too_many_recipients`, `tls_required`, `storage`, `protocol`, `other`.
 
 ### postscreen
 
-| Metrik                                        | Labels    | Bedeutung                                      |
+| Metric                                        | Labels    | Meaning                                        |
 |-----------------------------------------------|-----------|------------------------------------------------|
-| `postfix_postscreen_connections_total`        |           | Verbindungen                                   |
-| `postfix_postscreen_passes_total`             | `type`    | new (nach Tests), old (aus dem Cache)          |
+| `postfix_postscreen_connections_total`        |           | connections                                    |
+| `postfix_postscreen_passes_total`             | `type`    | new (after tests), old (from the cache)        |
 | `postfix_postscreen_tests_failed_total`       | `test`    | pregreet, non_smtp_command, command_pipelining, bare_newline, command_*_limit |
-| `postfix_postscreen_dnsbl_rank`               |           | Histogramm: DNSBL-Score gelisteter Clients     |
-| `postfix_postscreen_hangups_total`            |           | Clients, die während der Tests auflegen        |
+| `postfix_postscreen_dnsbl_rank`               |           | histogram: DNSBL score of listed clients       |
+| `postfix_postscreen_hangups_total`            |           | clients that hang up during the tests          |
 | `postfix_postscreen_rejects_total`            | `command` | CONNECT, RCPT                                  |
 | `postfix_postscreen_access_list_matches_total`| `list`    | allowlist, denylist, allowlist_veto            |
 
-### Betrieb
+### Operations
 
-| Metrik                                         | Labels                | Bedeutung                                    |
+| Metric                                         | Labels                | Meaning                                      |
 |------------------------------------------------|-----------------------|----------------------------------------------|
-| `postfix_log_messages_total`                   | `service`, `severity` | alle Postfix-Meldungen (info, warning, error, fatal, panic) |
+| `postfix_log_messages_total`                   | `service`, `severity` | all Postfix messages (info, warning, error, fatal, panic) |
 | `postfix_master_process_failures_total`        | `program`, `reason`   | exit, signal, throttling                     |
 | `postfix_exporter_log_lines_total`             | `result`              | matched, ignored, unmatched, foreign, invalid |
-| `postfix_exporter_log_source_up`               |                       | Log-Quelle wird gelesen (1) oder neu gestartet (0) |
-| `postfix_exporter_log_source_restarts_total`   |                       | Neustarts der Log-Quelle                     |
-| `postfix_exporter_last_log_line_timestamp_seconds` |                   | Zeit der letzten Postfix-Zeile               |
-| `postfix_exporter_build_info`                  | `version`, …          | Build-Informationen                          |
+| `postfix_exporter_log_source_up`               |                       | log source is being read (1) or restarted (0) |
+| `postfix_exporter_log_source_restarts_total`   |                       | restarts of the log source                   |
+| `postfix_exporter_last_log_line_timestamp_seconds` |                   | time of the last Postfix line                |
+| `postfix_exporter_build_info`                  | `version`, …          | build information                            |
 
-`unmatched` zählt Postfix-Zeilen, für die der Exporter kein Muster kennt. Mit `--log.level=debug` werden sie
-geloggt. Nach einem Postfix-Update ist das der erste Ort, an dem man neue Logformate sieht.
+`unmatched` counts Postfix lines for which the exporter knows no pattern. With `--log.level=debug` they are
+logged. After a Postfix upgrade this is the first place where new log formats show up.
 
-### Abfragen
+### Queries
 
 ```promql
-# Zustellquote der letzten Stunde
+# Delivery rate over the last hour
 sum(increase(postfix_delivery_status_total{status="sent"}[1h]))
   / sum(increase(postfix_delivery_status_total[1h]))
 
-# 95. Perzentil der Laufzeit bis zur Zustellung, pro Dienst
+# 95th percentile of the delay until delivery, per service
 histogram_quantile(0.95, sum by (le, service) (rate(postfix_delivery_delay_seconds_bucket{status="sent"}[5m])))
 
-# Rejects pro Minute nach Grund
+# Rejects per minute by reason
 sum by (reason) (rate(postfix_smtpd_rejects_total[5m])) * 60
 ```
 
-## Grafana-Dashboard und Alerts
+## Grafana dashboard and alerts
 
-- [`contrib/grafana/postfix.json`](contrib/grafana/postfix.json) – Dashboard (Grafana ≥ 10), Variablen für
-  Datenquelle und Server. Es wird aus [`generate.py`](contrib/grafana/generate.py) erzeugt; Änderungen dort
-  machen und `python3 contrib/grafana/generate.py contrib/grafana/postfix.json` ausführen.
-- [`contrib/alerts.yml`](contrib/alerts.yml) – Prometheus-Regeln: Postfix down, Log-Quelle, fatale Fehler,
-  gedrosselte Dienste, Queue-Größe und -Alter, Hold-Queue, Bounce- und Defer-Quote, SASL-Brute-Force,
-  ausgefallene lokale Zustellung, unbekannte Logzeilen.
+- [`contrib/grafana/postfix.json`](contrib/grafana/postfix.json) – dashboard (Grafana ≥ 10), variables for
+  data source and server. It is generated from [`generate.py`](contrib/grafana/generate.py); do not edit the
+  JSON file by hand, make changes there and run `make dashboards`.
+- [`contrib/alerts.yml`](contrib/alerts.yml) – Prometheus rules: Postfix down, log source, fatal errors,
+  throttled services, queue size and age, hold queue, bounce and defer ratio, SASL brute force, failing
+  local delivery, unrecognised log lines.
 
-## Lizenz
+## Licence
 
-AGPL-3.0, siehe [LICENSE](LICENSE). Teile stammen aus Projekten unter Apache-2.0 und BSD-3-Clause, siehe
+AGPL-3.0, see [LICENSE](LICENSE). Parts come from projects under Apache-2.0 and BSD-3-Clause, see
 [NOTICE](NOTICE).

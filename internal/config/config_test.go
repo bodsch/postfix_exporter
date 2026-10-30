@@ -18,6 +18,9 @@ func TestDefault(t *testing.T) {
 	if c.Replies.MaxTexts != 100 {
 		t.Errorf("max_texts = %d", c.Replies.MaxTexts)
 	}
+	if c.MaxServices != 100 {
+		t.Errorf("max_services = %d", c.MaxServices)
+	}
 }
 
 func TestParseEmpty(t *testing.T) {
@@ -37,6 +40,16 @@ func TestExampleConfig(t *testing.T) {
 	}
 	if len(c.Replies.Delivery) == 0 || len(c.Replies.Reject) == 0 {
 		t.Error("example config has no reply rules")
+	}
+}
+
+func TestMaxServices(t *testing.T) {
+	c, err := Parse([]byte("max_services: 3\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.MaxServices != 3 {
+		t.Errorf("max_services = %d, want 3", c.MaxServices)
 	}
 }
 
