@@ -1,0 +1,21 @@
+services:
+  smtp: [encrypt]
+
+replies:
+  reject:
+    - regexp: 'blocked using (\S+)'
+      text: 'dnsbl $1'
+    - regexp: '^(Relay access denied|Client host rejected|Recipient address rejected)'
+      text: '$1'
+  smtp:
+    - regexp: '(?i)greylist'
+      text: greylisting
+  delivery:
+    - statuses: [sent]
+      regexp: '.*'
+      text: ok
+    - regexp: '(?i)quota|mailbox.*full'
+      text: mailbox_full
+    - match: enhanced_code
+      regexp: '^5\.1\.1$'
+      text: user_unknown

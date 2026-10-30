@@ -1,0 +1,143 @@
+groups:
+  - name: postfix
+    rules:
+      # showq is a Postfix daemon: if it does not answer, Postfix is down.
+      - alert: PostfixDown
+        expr: postfix_showq_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postfix on {{ $labels.instance }} is down"
+          description: "The mail queue cannot be read from showq. See the exporter log for the error."
+
+      - alert: PostfixExporterLogSourceDown
+        expr: postfix_exporter_log_source_up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "postfix_exporter on {{ $labels.instance }} cannot read the Postfix log"
+          description: "All log based metrics are stale. Check the log file or journal permissions."
+
+      # A busy MX logs every few seconds. Raise "for" or drop the rule on
+      # a server that can legitimately be silent for an hour.
+      - alert: PostfixNoLogLines
+        expr: postfix_exporter_last_log_line_timestamp_seconds > 0 and time() - postfix_exporter_last_log_line_timestamp_seconds > 3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No Postfix log lines on {{ $labels.instance }} for {{ $value | humanizeDuration }}"
+
+      - alert: PostfixFatalError
+        expr: increase(postfix_log_messages_total{severity=~"fatal|panic"}[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postfix {{ $labels.service }} on {{ $labels.instance }} logged a {{ $labels.severity }} error"
+          description: "A fatal error ends the process; repeated ones make master throttle the service."
+
+      - alert: PostfixServiceThrottled
+        expr: increase(postfix_master_process_failures_total{reason="throttling"}[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postfix master throttles {{ $labels.program }} on {{ $labels.instance }}"
+          description: "The service fails at startup and is started only with a delay. Mail may not be accepted or delivered."
+
+      - alert: PostfixProcessFailures
+        expr: increase(postfix_master_process_failures_total{reason=~"exit|signal"}[15m]) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "Postfix {{ $labels.program }} on {{ $labels.instance }} failed {{ $value | printf \"%.0f\" }} times in 15m"
+
+      - alert: PostfixDeferredQueueHigh
+        expr: postfix_queue_messages{queue="deferred"} > 100
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} messages in the deferred queue on {{ $labels.instance }}"
+          description: "See postfix_delivery_status_total by dsn, or 'postqueue -p', for the reasons."
+
+      - alert: PostfixActiveQueueHigh
+        expr: postfix_queue_messages{queue=~"active|incoming|maildrop"} > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} messages in the {{ $labels.queue }} queue on {{ $labels.instance }}"
+          description: "Postfix does not keep up with delivering; a mail loop or a mass mailing?"
+
+      - alert: PostfixOldDeferredMessages
+        expr: postfix_queue_oldest_message_age_seconds{queue="deferred"} > 86400
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Messages deferred for {{ $value | humanizeDuration }} on {{ $labels.instance }}"
+          description: "They bounce after maximal_queue_lifetime (5d by default)."
+
+      - alert: PostfixHoldQueue
+        expr: postfix_queue_messages{queue="hold"} > 0
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $value }} messages on hold on {{ $labels.instance }}"
+          description: "Held messages are never delivered without 'postsuper -H'."
+
+      # Only from 20 attempts in 15m on, so that a single bounce on a quiet
+      # server does not fire.
+      - alert: PostfixHighBounceRatio
+        expr: |
+          sum by (instance) (increase(postfix_delivery_status_total{status="bounced"}[15m]))
+            / sum by (instance) (increase(postfix_delivery_status_total[15m])) > 0.1
+          and sum by (instance) (increase(postfix_delivery_status_total[15m])) >= 20
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of deliveries bounce on {{ $labels.instance }}"
+
+      - alert: PostfixHighDeferRatio
+        expr: |
+          sum by (instance) (increase(postfix_delivery_status_total{status="deferred"}[15m]))
+            / sum by (instance) (increase(postfix_delivery_status_total[15m])) > 0.3
+          and sum by (instance) (increase(postfix_delivery_status_total[15m])) >= 20
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of deliveries are deferred on {{ $labels.instance }}"
+          description: "Blocklisted IP, broken DNS or a down relay/lmtp target? See the dsn label."
+
+      - alert: PostfixSASLAuthenticationFailures
+        expr: sum by (instance, service) (increase(postfix_smtpd_sasl_authentication_failures_total[10m])) > 50
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | printf \"%.0f\" }} failed SASL logins in 10m on {{ $labels.instance }} ({{ $labels.service }})"
+          description: "Password guessing? Check that fail2ban or smtpd_client_auth_rate_limit is active."
+
+      - alert: PostfixLocalDeliveryFailing
+        expr: |
+          sum by (instance, service) (increase(postfix_delivery_status_total{service=~"(.*/)?(lmtp|local|virtual|pipe)",status="deferred"}[15m])) > 5
+          unless sum by (instance, service) (increase(postfix_delivery_status_total{service=~"(.*/)?(lmtp|local|virtual|pipe)",status="sent"}[15m])) > 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Local delivery via {{ $labels.service }} fails on {{ $labels.instance }}"
+          description: "Only deferrals and no successful delivery: is the mailbox server (e.g. dovecot lmtp) down?"
+
+      # New log formats, e.g. after a Postfix upgrade, are not counted.
+      - alert: PostfixExporterUnmatchedLines
+        expr: increase(postfix_exporter_log_lines_total{result="unmatched"}[1h]) > 10
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $value | printf \"%.0f\" }} Postfix log lines per hour are unknown to postfix_exporter on {{ $labels.instance }}"
+          description: "Run the exporter with --log.level=debug to see them."

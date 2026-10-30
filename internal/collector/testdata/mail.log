@@ -1,0 +1,90 @@
+Jan  1 00:00:00 mx postfix1[12345]: foreign program
+Jan  1 00:00:00 mx dovecot[123]: imap-login: Login: user=<a@example.com>
+Jan: 1 00:00:00 mx postfix/postscreen[12345]: malformed timestamp
+Jan  1 00:00:00 mx postfix/postscreen[abcde]: malformed pid
+Jan  1 00:00:00 mx postfix/postscreen[12345
+Foo 1 00:00:00 mx
+Jan  1 00:00:00 mx postfix/unknownd[12345]: unmatched: unknown daemon
+Jan  1 00:00:00 mx postfix/smtpd[12345]: unmatched: unknown smtpd line
+Jan  1 00:00:00 mx postfix/postscreen[100]: CONNECT from [192.0.2.1]:4711 to [198.51.100.1]:25
+Jan  1 00:00:00 mx postfix/postscreen[100]: PREGREET 11 after 0.12 from [192.0.2.1]:4711: EHLO User\r\n
+Jan  1 00:00:00 mx postfix/postscreen[100]: DNSBL rank 3 for [192.0.2.1]:4711
+Jan  1 00:00:00 mx postfix/postscreen[100]: HANGUP after 0.5 from [192.0.2.1]:4711 in tests after SMTP handshake
+Jan  1 00:00:00 mx postfix/postscreen[100]: DISCONNECT [192.0.2.1]:4711
+Jan  1 00:00:00 mx postfix/postscreen[100]: CONNECT from [192.0.2.2]:4711 to [198.51.100.1]:25
+Jan  1 00:00:00 mx postfix/postscreen[100]: PASS NEW [192.0.2.2]:4711
+Jan  1 00:00:00 mx postfix/postscreen[100]: CONNECT from [192.0.2.3]:4711 to [198.51.100.1]:25
+Jan  1 00:00:00 mx postfix/postscreen[100]: PASS OLD [192.0.2.3]:4711
+Jan  1 00:00:00 mx postfix/postscreen[100]: NON-SMTP COMMAND from [192.0.2.4]:4711 after CONNECT: GET / HTTP/1.1
+Jan  1 00:00:00 mx postfix/postscreen[100]: BARE NEWLINE from [192.0.2.4]:4711 after \000
+Jan  1 00:00:00 mx postfix/postscreen[100]: COMMAND PIPELINING from [192.0.2.4]:4711 after EHLO: QUIT\r\n
+Jan  1 00:00:00 mx postfix/postscreen[100]: NOQUEUE: reject: RCPT from [192.0.2.5]:4711: 550 5.7.1 Service unavailable; client [192.0.2.5] blocked using zen.spamhaus.org; from=<a@example.org>, to=<b@example.com>, proto=ESMTP, helo=<x>
+Jan  1 00:00:00 mx postfix/postscreen[100]: NOQUEUE: reject: CONNECT from [192.0.2.6]:4711: too many connections
+Jan  1 00:00:00 mx postfix/postscreen[100]: DENYLISTED [192.0.2.7]:4711
+Jan  1 00:00:00 mx postfix/postscreen[100]: WHITELISTED [192.0.2.8]:4711
+Jan  1 00:00:00 mx postfix/postscreen[100]: ALLOWLIST VETO [192.0.2.9]:4711
+Jan  1 00:00:00 mx postfix/postscreen[100]: DATA without valid RCPT from [192.0.2.10]:4711
+Jan  1 00:00:00 mx postfix/postscreen[100]: warning: getpeername: Transport endpoint is not connected -- dropping this connection
+Jan  1 00:00:00 mx postfix/smtpd[200]: connect from mail.example.org[192.0.2.20]
+Jan  1 00:00:00 mx postfix/smtpd[200]: Anonymous TLS connection established from mail.example.org[192.0.2.20]: TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits) key-exchange X25519 server-signature RSA-PSS (2048 bits) server-digest SHA256
+Jan  1 00:00:00 mx postfix/smtpd[200]: 4Q1x2y3z4: client=mail.example.org[192.0.2.20]
+Jan  1 00:00:00 mx postfix/cleanup[201]: 4Q1x2y3z4: message-id=<1@example.org>
+Jan  1 00:00:00 mx postfix/qmgr[202]: 4Q1x2y3z4: from=<a@example.org>, size=2048, nrcpt=2 (queue active)
+Jan  1 00:00:00 mx postfix/smtpd[200]: disconnect from mail.example.org[192.0.2.20] ehlo=2 starttls=1 mail=1 rcpt=2/3 data=1 quit=1 commands=8/9
+Jan  1 00:00:00 mx postfix/lmtp[203]: 4Q1x2y3z4: to=<b@example.com>, relay=mail.example.com[private/dovecot-lmtp], delay=0.31, delays=0.1/0.01/0.1/0.1, dsn=2.0.0, status=sent (250 2.0.0 <b@example.com> Saved)
+Jan  1 00:00:00 mx postfix/lmtp[203]: 4Q1x2y3z4: to=<c@example.com>, relay=mail.example.com[private/dovecot-lmtp], delay=0.5, delays=0.1/0.01/0.1/0.29, dsn=5.2.2, status=bounced (host mail.example.com[private/dovecot-lmtp] said: 552 5.2.2 <c@example.com> Quota exceeded (mailbox for user is full) (in reply to end of DATA command))
+Jan  1 00:00:00 mx postfix/qmgr[202]: 4Q1x2y3z4: removed
+Jan  1 00:00:00 mx postfix/smtpd[210]: connect from unknown[192.0.2.30]
+Jan  1 00:00:00 mx postfix/smtpd[210]: NOQUEUE: reject: RCPT from unknown[192.0.2.30]: 554 5.7.1 <x@example.net>: Relay access denied; from=<s@example.org> to=<x@example.net> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/smtpd[210]: NOQUEUE: reject: RCPT from unknown[192.0.2.30]: 550 5.1.1 <nobody@example.com>: Recipient address rejected: User unknown in virtual mailbox table; from=<s@example.org> to=<nobody@example.com> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/smtpd[210]: NOQUEUE: reject: RCPT from unknown[192.0.2.30]: 450 4.7.25 Client host rejected: cannot find your hostname, [192.0.2.30]; from=<s@example.org> to=<b@example.com> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/smtpd[210]: NOQUEUE: reject: RCPT from unknown[192.0.2.30]: 554 5.7.1 Service unavailable; Client host [192.0.2.30] blocked using bl.spamcop.net; from=<s@example.org> to=<b@example.com> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/smtpd[210]: NOQUEUE: reject_warning: RCPT from unknown[192.0.2.30]: 450 4.7.1 <spam>: Helo command rejected: Host not found; from=<s@example.org> to=<b@example.com> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/smtpd[210]: NOQUEUE: milter-reject: RCPT from unknown[192.0.2.30]: 451 4.7.1 Greylisting in action, please come back later; from=<s@example.org> to=<b@example.com> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/smtpd[210]: 4Q1x2y3z5: hold: RCPT from unknown[192.0.2.30]: <s@example.org>: Sender address triggers HOLD action; from=<s@example.org> to=<b@example.com> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/smtpd[210]: warning: hostname spam.example does not resolve to address 192.0.2.30: Name or service not known
+Jan  1 00:00:00 mx postfix/smtpd[210]: warning: 192.0.2.31: address not listed for hostname host.example
+Jan  1 00:00:00 mx postfix/smtpd[210]: warning: 192.0.2.32: hostname host.example verification failed: Name or service not known
+Jan  1 00:00:00 mx postfix/smtpd[210]: improper command pipelining after CONNECT from unknown[192.0.2.30]: QUIT\r\n
+Jan  1 00:00:00 mx postfix/smtpd[210]: lost connection after RCPT from unknown[192.0.2.30]
+Jan  1 00:00:00 mx postfix/smtpd[210]: timeout after DATA (0 bytes) from unknown[192.0.2.30]
+Jan  1 00:00:00 mx postfix/smtpd[210]: too many errors after AUTH from unknown[192.0.2.30]
+Jan  1 00:00:00 mx postfix/smtpd[210]: SSL_accept error from unknown[192.0.2.30]: -1
+Jan  1 00:00:00 mx postfix/smtpd[210]: warning: TLS library problem: error:0A000076:SSL routines::no suitable signature algorithm
+Jan  1 00:00:00 mx postfix/smtpd[210]: warning: Connection rate limit exceeded: 31 from unknown[192.0.2.30] for service smtp
+Jan  1 00:00:00 mx postfix/smtpd[210]: disconnect from unknown[192.0.2.30] ehlo=1 mail=1 rcpt=0/4 quit=1 commands=3/7
+Jan  1 00:00:00 mx postfix/submission/smtpd[220]: connect from client.example.com[203.0.113.5]
+Jan  1 00:00:00 mx postfix/submission/smtpd[220]: Trusted TLS connection established from client.example.com[203.0.113.5]: TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits)
+Jan  1 00:00:00 mx postfix/submission/smtpd[220]: warning: client.example.com[203.0.113.5]: SASL LOGIN authentication failed: UGFzc3dvcmQ6
+Jan  1 00:00:00 mx postfix/submission/smtpd[220]: 4Q1x2y3z6: client=client.example.com[203.0.113.5], sasl_method=PLAIN, sasl_username=user@example.com
+Jan  1 00:00:00 mx postfix/submission/cleanup[221]: 4Q1x2y3z6: message-id=<2@example.com>
+Jan  1 00:00:00 mx postfix/submission/smtpd[220]: disconnect from client.example.com[203.0.113.5] ehlo=2 starttls=1 auth=1/2 mail=1 rcpt=1 data=1 quit=1 commands=8/9
+Jan  1 00:00:00 mx postfix/cleanup[201]: 4Q1x2y3z7: milter-reject: END-OF-MESSAGE from unknown[192.0.2.30]: 5.7.1 Spam message rejected; from=<s@example.org> to=<b@example.com> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/cleanup[201]: 4Q1x2y3z8: reject: header Subject: Buy now from unknown[192.0.2.30]; from=<s@example.org> to=<b@example.com> proto=ESMTP helo=<spam>: 5.7.1 message content rejected
+Jan  1 00:00:00 mx postfix/cleanup[201]: 4Q1x2y3z9: warning: body Click here from unknown[192.0.2.30]; from=<s@example.org> to=<b@example.com> proto=ESMTP helo=<spam>
+Jan  1 00:00:00 mx postfix/pickup[230]: 4Q1x2y3zA: uid=0 from=<root>
+Jan  1 00:00:00 mx postfix/smtp[240]: Verified TLS connection established to mx.example.net[198.51.100.25]:25: TLSv1.3 with cipher TLS_AES_256_GCM_SHA384 (256/256 bits) key-exchange X25519 server-signature ECDSA (P-256) server-digest SHA256
+Jan  1 00:00:00 mx postfix/smtp[240]: 4Q1x2y3zA: to=<x@example.net>, relay=mx.example.net[198.51.100.25]:25, delay=1.2, delays=0.1/0.1/0.5/0.5, dsn=2.0.0, status=sent (250 2.0.0 Ok: queued as ABC)
+Jan  1 00:00:00 mx postfix/smtp[240]: connect to mx.example.org[198.51.100.26]:25: Connection timed out
+Jan  1 00:00:00 mx postfix/smtp[240]: connect to mx2.example.org[198.51.100.27]:25: Connection refused
+Jan  1 00:00:00 mx postfix/smtp[240]: 4Q1x2y3zB: to=<y@example.org>, relay=none, delay=30, delays=0.1/0/30/0, dsn=4.4.1, status=deferred (connect to mx2.example.org[198.51.100.27]:25: Connection refused)
+Jan  1 00:00:00 mx postfix/smtp[240]: 4Q1x2y3zC: host mx.example.net[198.51.100.25] said: 450 4.2.0 Greylisted, see https://example.net/greylist (in reply to RCPT TO command)
+Jan  1 00:00:00 mx postfix/smtp[240]: 4Q1x2y3zC: to=<z@example.net>, relay=mx.example.net[198.51.100.25]:25, delay=2, delays=0.1/0/1/0.9, dsn=5.1.1, status=bounced (host mx.example.net[198.51.100.25] said: 550 5.1.1 <z@example.net>: Recipient address rejected: User unknown (in reply to RCPT TO command))
+Jan  1 00:00:00 mx postfix/smtp[240]: 4Q1x2y3zC: lost connection with mx.example.net[198.51.100.25] while sending end of data -- message may be sent more than once
+Jan  1 00:00:00 mx postfix/relay/smtp[241]: 4Q1x2y3zD: to=<w@example.org>, relay=relay.example.org[198.51.100.30]:587, delay=5, delays=1/1/2/1, dsn=2.0.0, status=sent (250 Ok)
+Jan  1 00:00:00 mx postfix/encrypt[242]: 4Q1x2y3zE: to=<v@example.org>, relay=relay.example.org[198.51.100.30]:25, delay=3, delays=1/1/0.5/0.5, dsn=2.0.0, status=sent (250 Ok)
+Jan  1 00:00:00 mx postfix/local[250]: 4Q1x2y3zF: to=<root@mx.example.com>, orig_to=<root>, relay=local, delay=0.02, delays=0.01/0/0/0.01, dsn=2.0.0, status=sent (delivered to mailbox)
+Jan  1 00:00:00 mx postfix/virtual[251]: 4Q1x2y3zG: to=<u@example.com>, relay=virtual, delay=0.03, delays=0.01/0/0/0.02, dsn=2.0.0, status=sent (delivered to maildir)
+Jan  1 00:00:00 mx postfix/pipe[252]: 4Q1x2y3zH: to=<t@example.com>, relay=spamassassin, delay=1, delays=0.1/0/0/0.9, dsn=2.0.0, status=sent (delivered via spamassassin service)
+Jan  1 00:00:00 mx postfix/error[253]: 4Q1x2y3zI: to=<s@example.com>, relay=none, delay=0.1, delays=0.1/0/0/0, dsn=5.0.0, status=bounced (user unknown)
+Jan  1 00:00:00 mx postfix/bounce[260]: 4Q1x2y3zI: sender non-delivery notification: 4Q1x2y3zJ
+Jan  1 00:00:00 mx postfix/bounce[260]: 4Q1x2y3zB: sender delay notification: 4Q1x2y3zK
+Jan  1 00:00:00 mx postfix/qmgr[202]: 4Q1x2y3zL: from=<old@example.org>, status=expired, returned to sender
+Jan  1 00:00:00 mx postfix/qmgr[202]: 4Q1x2y3zM: to=<q@example.net>, relay=none, delay=600, delays=600/0/0/0, dsn=4.4.1, status=deferred (delivery temporarily suspended: connect to mx.example.net[198.51.100.25]:25: Connection timed out)
+Jan  1 00:00:00 mx postfix/master[1]: warning: process /usr/lib/postfix/bin/smtpd pid 4242 exit status 1
+Jan  1 00:00:00 mx postfix/master[1]: warning: /usr/lib/postfix/bin/smtpd: bad command startup -- throttling
+Jan  1 00:00:00 mx postfix/master[1]: daemon started -- version 3.9.1, configuration /etc/postfix
+Jan  1 00:00:00 mx postfix/anvil[270]: statistics: max connection rate 1/60s for (smtp:192.0.2.1) at Jan  1 00:00:00
+Jan  1 00:00:00 mx postfix/scache[271]: statistics: start interval Jan  1 00:00:00
+2026-10-29T10:00:00.123456+01:00 mx postfix/smtpd[280]: connect from mail.example.org[192.0.2.20]
+2026-10-29T10:00:01.123456+01:00 mx postfix/smtpd[280]: fatal: no free space for queue file

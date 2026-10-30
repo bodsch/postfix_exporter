@@ -1,0 +1,56 @@
+[Unit]
+Description=Prometheus exporter for Postfix
+Documentation=https://github.com/bodsch/postfix_exporter
+After=network-online.target postfix.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=postfix_exporter
+Group=postfix_exporter
+# postdrop: the showq socket lives in /var/spool/postfix/public, which is
+#   mode 0710 and group postdrop. The group also allows submitting mail
+#   via postdrop, which the exporter never does.
+# systemd-journal: with "log.source: journal".
+# adm (Debian, Ubuntu) or log (Arch): with "log.source: file" and a
+#   mail.log that is not world-readable.
+# Every group listed must exist, or the start fails with status 216/GROUP.
+SupplementaryGroups=postdrop
+#SupplementaryGroups=systemd-journal
+#SupplementaryGroups=adm
+ExecStart=/usr/local/bin/postfix_exporter --config.file=/etc/postfix_exporter/config.yml
+Restart=on-failure
+
+CapabilityBoundingSet=
+NoNewPrivileges=yes
+UMask=0077
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+# journalctl runs as a child and only needs its own /proc entries.
+ProtectProc=invisible
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+
+# AF_UNIX for showq, AF_INET(6) for the HTTP listener and a TCP showq,
+# AF_NETLINK for Go's interface lookups.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

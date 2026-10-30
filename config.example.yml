@@ -1,0 +1,108 @@
+# postfix_exporter configuration
+#
+# All settings are optional; without a configuration file the exporter
+# reads /var/log/mail.log and the queue from
+# /var/spool/postfix/public/showq.
+
+log:
+  # "file" for a syslog file or Postfix's own maillog_file,
+  # "journal" for the systemd journal (read via journalctl).
+  source: file
+
+  file: /var/log/mail.log
+  # Poll for changes instead of inotify, e.g. on network file systems.
+  # poll: false
+
+  journal:
+    # Restrict the journal to the Postfix unit. Arch Linux, Fedora:
+    # postfix.service; Debian, Ubuntu: postfix@-.service.
+    units:
+      - postfix.service
+    # command: journalctl
+    # directory: /var/log/journal/<machine-id>
+
+  # Postfix's syslog_name (postconf -h syslog_name).
+  # syslog_name: postfix
+
+showq:
+  # unix:///path for the local socket, tcp://host:port for a showq
+  # service exposed in master.cf (protect it, it reveals all addresses).
+  address: unix:///var/spool/postfix/public/showq
+  timeout: 10s
+  # disabled: false
+
+# Service names from master.cf whose last path element is not the daemon
+# type. "submission/smtpd" or "relay/smtp" (via syslog_name) need no entry.
+#
+#   encrypt  unix  -  -  n  -  -  smtp
+#     -o smtp_tls_security_level=encrypt
+#
+# services:
+#   smtp: [encrypt]
+
+# Classification of SMTP replies into a "text" label. Without rules the
+# metrics postfix_delivery_replies_total, postfix_smtp_replies_total and
+# postfix_smtpd_reject_replies_total are not exported; the reason classes
+# of postfix_smtpd_rejects_total work without any rules.
+#
+# Every list is tried in order, the first matching rule wins, replies no
+# rule matches are not counted. "match" selects what "regexp" is applied
+# to: code (550), enhanced_code (5.1.1) or text (default). "text" may use
+# submatches ($1). Test rules against the existing log with
+#   postfix_exporter --config.file=... --replay
+replies:
+  # Distinct texts per metric; further ones are counted as "other".
+  max_texts: 100
+
+  # NOQUEUE rejects by smtpd restrictions.
+  reject:
+    - regexp: 'blocked using (\S+)'
+      text: 'dnsbl $1'
+    - regexp: 'Relay access denied'
+      text: relay_denied
+    - regexp: 'User unknown|undeliverable address'
+      text: unknown_recipient
+    - regexp: 'cannot find your (?:reverse )?hostname'
+      text: no_reverse_dns
+    - regexp: 'Helo command rejected: (Host not found|need fully-qualified hostname|Invalid name)'
+      text: 'helo: $1'
+    - regexp: 'Sender address rejected: (Domain not found|need fully-qualified address|not owned by user)'
+      text: 'sender: $1'
+    - regexp: '(?i)spf'
+      text: spf
+    - regexp: '(?i)greylist'
+      text: greylisting
+
+  # Replies to delivery attempts with a status (smtp, lmtp, local, ...).
+  delivery:
+    - statuses: [sent]
+      regexp: '.*'
+      text: ok
+    - regexp: '(?i)greylist|try again later'
+      text: greylisting
+    - regexp: '(?i)quota|mailbox.*full|over.*storage|insufficient.*storage'
+      text: mailbox_full
+    - regexp: '(?i)spamhaus|blocklist|blacklist|denylist|block list|listed'
+      text: listed
+    - regexp: '(?i)spf|dkim|dmarc'
+      text: authentication
+    - regexp: '(?i)spam|policy|reputation'
+      text: spam_policy
+    - match: enhanced_code
+      regexp: '^5\.1\.[0-3]$'
+      text: unknown_recipient
+    - regexp: 'Connection timed out|Connection refused|No route to host|Network is unreachable'
+      text: connection
+    - regexp: '(?i)host or domain name not found|name service error'
+      text: dns
+    - regexp: '(?i)tls|certificate'
+      text: tls
+    - regexp: '.*'
+      text: other
+
+  # Remote replies the smtp client logs without a status.
+  smtp:
+    - regexp: '(?i)greylist|try again later'
+      text: greylisting
+    - regexp: '.*'
+      text: other
