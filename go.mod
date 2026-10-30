@@ -5,7 +5,7 @@ go 1.27.3
 require (
 	github.com/nxadm/tail v1.4.11
 	github.com/prometheus/client_golang v1.25.0
-	github.com/prometheus/common v0.72.0
+	github.com/prometheus/common v0.72.1
 	github.com/prometheus/exporter-toolkit v0.20.0
 	gopkg.in/yaml.v3 v3.0.1
 )
